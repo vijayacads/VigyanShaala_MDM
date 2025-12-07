@@ -15,7 +15,6 @@ export default function WebsiteBlocklist() {
   const [loading, setLoading] = useState(true)
   const [newDomain, setNewDomain] = useState('')
   const [newCategory, setNewCategory] = useState('social_media')
-  const [editingId, setEditingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchBlocklist()

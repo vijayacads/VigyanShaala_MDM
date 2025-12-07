@@ -15,7 +15,6 @@ export default function SoftwareBlocklist() {
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [newPath, setNewPath] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchBlocklist()
