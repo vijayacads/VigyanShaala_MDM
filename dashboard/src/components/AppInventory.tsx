@@ -66,7 +66,7 @@ export default function AppInventory({ locationId }: AppInventoryProps) {
       const formattedData = (data || []).map((d: any) => ({
         id: d.id,
         hostname: d.hostname,
-        location_name: d.locations?.name || 'Unknown',
+        location_name: d.locations?.name || 'Unassigned',
         compliance_status: d.compliance_status,
         last_seen: d.last_seen ? new Date(d.last_seen).toLocaleString() : 'Never',
         os_version: d.os_version || 'Unknown'

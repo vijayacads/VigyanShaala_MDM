@@ -172,7 +172,12 @@ export default function DeviceMap({ locationId }: DeviceMapProps) {
             <Popup>
               <strong>{device.hostname}</strong><br />
               Status: {device.compliance_status}<br />
-              Location: {device.latitude.toFixed(4)}, {device.longitude.toFixed(4)}
+              GPS: {device.latitude.toFixed(4)}, {device.longitude.toFixed(4)}<br />
+              {device.location_id ? (
+                <>Location: {locations.find(l => l.id === device.location_id)?.name || 'Unknown'}</>
+              ) : (
+                <span style={{ color: '#ef4444' }}>⚠️ No location assigned</span>
+              )}
             </Popup>
           </CircleMarker>
         )
