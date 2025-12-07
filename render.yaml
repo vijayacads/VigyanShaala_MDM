@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: vigyanshaala-mdm-dashboard
+    env: node
+    buildCommand: cd dashboard && npm install && npm run build
+    startCommand: cd dashboard && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+
