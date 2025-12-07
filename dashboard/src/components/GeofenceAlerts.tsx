@@ -61,8 +61,8 @@ export default function GeofenceAlerts({ locationId }: GeofenceAlertsProps) {
           distance_meters,
           created_at,
           resolved_at,
-          devices!inner(hostname),
-          locations!inner(name)
+          devices!left(hostname),
+          locations!left(name)
         `)
         .order('created_at', { ascending: false })
         .limit(100)

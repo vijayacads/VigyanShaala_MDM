@@ -52,7 +52,7 @@ export default function AppInventory({ locationId }: AppInventoryProps) {
           compliance_status,
           last_seen,
           os_version,
-          locations!inner(name)
+          locations!left(name)
         `)
 
       if (locationId) {

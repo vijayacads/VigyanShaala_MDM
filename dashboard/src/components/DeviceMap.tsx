@@ -79,7 +79,7 @@ export default function DeviceMap({ locationId }: DeviceMapProps) {
     try {
       setLoading(true)
       
-      // Fetch devices
+      // Fetch devices (including those without assigned locations)
       let query = supabase
         .from('devices')
         .select('id, hostname, latitude, longitude, compliance_status, location_id')
@@ -89,6 +89,7 @@ export default function DeviceMap({ locationId }: DeviceMapProps) {
       if (locationId) {
         query = query.eq('location_id', locationId)
       }
+      // When no location filter, include all devices (including null location_id)
 
       const { data: devicesData, error: devicesError } = await query
 
