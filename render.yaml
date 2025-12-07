@@ -6,7 +6,7 @@ services:
     # Root directory where package.json is located
     rootDir: dashboard
     # Build command (runs in rootDir)
-    buildCommand: npm install --legacy-peer-deps && npm run build
+    buildCommand: npm ci --legacy-peer-deps && npm run build
     # Start command (runs in rootDir)
     startCommand: npm start
     # DO NOT use dockerfile - this service uses Node.js
