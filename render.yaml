@@ -1,11 +1,15 @@
 services:
   - type: web
     name: vigyanshaala-mdm-dashboard
+    # CRITICAL: Must be "node" not "docker"
     env: node
-    # Node.js approach - no Dockerfile needed
+    # Root directory where package.json is located
     rootDir: dashboard
-    buildCommand: npm install && npm run build
+    # Build command (runs in rootDir)
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    # Start command (runs in rootDir)
     startCommand: npm start
+    # DO NOT use dockerfile - this service uses Node.js
     envVars:
       - key: NODE_ENV
         value: production
