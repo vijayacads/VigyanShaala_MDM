@@ -60,23 +60,6 @@ export default function DeviceMap({ locationId }: DeviceMapProps) {
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchData()
-    
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('devices-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'devices' },
-        () => fetchData()
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [locationId])
-
   async function fetchData() {
     try {
       setLoading(true)
@@ -113,6 +96,23 @@ export default function DeviceMap({ locationId }: DeviceMapProps) {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchData()
+    
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('devices-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'devices' },
+        () => fetchData()
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [locationId])
 
   if (loading) {
     return <div className="map-loading">Loading map...</div>
