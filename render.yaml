@@ -2,8 +2,7 @@ services:
   - type: web
     name: vigyanshaala-mdm-dashboard
     env: node
-    # Using Node.js approach (not Docker)
-    # If you want Docker, change env to "docker" and remove buildCommand/startCommand
+    # Node.js approach - no Dockerfile needed
     rootDir: dashboard
     buildCommand: npm install && npm run build
     startCommand: npm start

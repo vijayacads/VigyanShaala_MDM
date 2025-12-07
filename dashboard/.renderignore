@@ -1,0 +1,9 @@
+# Render ignore file - prevents Render from looking for Dockerfile
+node_modules
+dist
+.git
+.env
+.env.local
+*.log
+.DS_Store
+
