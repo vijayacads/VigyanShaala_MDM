@@ -5,12 +5,14 @@ import 'leaflet/dist/leaflet.css'
 import { supabase } from '../../supabase.config'
 
 // Fix for default marker icons in React-Leaflet
+// @ts-ignore - Leaflet images don't have type declarations
 import icon from 'leaflet/dist/images/marker-icon.png'
+// @ts-ignore
 import iconShadow from 'leaflet/dist/images/marker-shadow.png'
 
 const DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
+  iconUrl: icon as string,
+  shadowUrl: iconShadow as string,
   iconSize: [25, 41],
   iconAnchor: [12, 41]
 })
