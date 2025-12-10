@@ -62,13 +62,12 @@ function App() {
           {activeTab === 'dashboard' && (
             <>
               <section className="map-section">
-                <DeviceMap locationId={selectedLocation} key={refreshKey} />
+                <DeviceMap locationId={selectedLocation} />
               </section>
 
               <section className="inventory-section">
                 <AppInventory 
-                  locationId={selectedLocation} 
-                  key={refreshKey}
+                  locationId={selectedLocation}
                 />
               </section>
 
@@ -81,7 +80,6 @@ function App() {
           {activeTab === 'add-device' && (
             <section className="add-device-section">
               <AddDevice onDeviceAdded={() => {
-                setRefreshKey(k => k + 1)
                 setActiveTab('dashboard')
               }} />
             </section>
