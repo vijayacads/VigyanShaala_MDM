@@ -54,11 +54,14 @@ if (Test-Path "osquery.conf") {
     Write-Warning "osquery.conf not found - using default configuration"
 }
 
-# Step 3: Copy enrollment script
-$enrollScript = "$InstallDir\enroll-fleet.ps1"
-if (Test-Path "enroll-fleet.ps1") {
-    Copy-Item "enroll-fleet.ps1" $enrollScript -Force
+# Step 3: Copy enrollment scripts
+$enrollScript = "$InstallDir\enroll-device.ps1"
+if (Test-Path "enroll-device.ps1") {
+    Copy-Item "enroll-device.ps1" $enrollScript -Force
     Write-Host "Enrollment script copied" -ForegroundColor Green
+} elseif (Test-Path "enroll-fleet.ps1") {
+    Copy-Item "enroll-fleet.ps1" "$InstallDir\enroll-fleet.ps1" -Force
+    Write-Host "Legacy enrollment script copied" -ForegroundColor Green
 }
 
 # Step 4: Set environment variables for enrollment
@@ -101,7 +104,11 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Start-Sleep -Seconds 2
     
     # Run enrollment script in new window so user can interact
-    Start-Process powershell.exe -ArgumentList "-ExecutionPolicy Bypass -File `"$enrollScript`"" -Wait
+    if (Test-Path $enrollScript) {
+        Start-Process powershell.exe -ArgumentList "-ExecutionPolicy Bypass -File `"$enrollScript`"" -Wait
+    } else {
+        Write-Warning "Enrollment script not found at $enrollScript"
+    }
 } else {
     Write-Host "`nEnrollment wizard skipped (missing environment variables)" -ForegroundColor Yellow
     Write-Host "Run enroll-fleet.ps1 manually after setting environment variables" -ForegroundColor Yellow
@@ -112,3 +119,4 @@ Write-Host "`nInstalled components:" -ForegroundColor Cyan
 Write-Host "- osquery agent: $InstallDir" -ForegroundColor White
 Write-Host "- Service: $serviceName" -ForegroundColor White
 Write-Host "- Configuration: $configDir" -ForegroundColor White
+
