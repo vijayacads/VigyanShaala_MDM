@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../supabase.config'
 import './AddDevice.css'
 
@@ -20,6 +20,8 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
   const [editing, setEditing] = useState(false)
   const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null)
   const [devices, setDevices] = useState<Device[]>([])
+  const [deviceSearchQuery, setDeviceSearchQuery] = useState('')
+  const [showDeviceDropdown, setShowDeviceDropdown] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [formData, setFormData] = useState({
     hostname: '',
@@ -51,9 +53,23 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     }
   }
 
+  const filteredDevices = useMemo(() => {
+    if (!deviceSearchQuery) return []
+    const query = deviceSearchQuery.toLowerCase()
+    return devices.filter(device => 
+      device.hostname?.toLowerCase().includes(query) ||
+      device.device_inventory_code?.toLowerCase().includes(query) ||
+      device.host_location?.toLowerCase().includes(query) ||
+      device.city_town_village?.toLowerCase().includes(query) ||
+      device.serial_number?.toLowerCase().includes(query)
+    ).slice(0, 10) // Limit to 10 results
+  }, [deviceSearchQuery, devices])
+
   function loadDeviceForEdit(device: Device) {
     setEditing(true)
     setSelectedDeviceId(device.id)
+    setDeviceSearchQuery(`${device.hostname}${device.device_inventory_code ? ` (${device.device_inventory_code})` : ''}`)
+    setShowDeviceDropdown(false)
     setFormData({
       hostname: device.hostname || '',
       device_inventory_code: device.device_inventory_code || '',
@@ -70,6 +86,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
   function resetForm() {
     setEditing(false)
     setSelectedDeviceId(null)
+    setDeviceSearchQuery('')
     setFormData({
       hostname: '',
       device_inventory_code: '',
@@ -313,54 +330,57 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
         </div>
       </form>
 
-      <div className="edit-device-section" style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '2px solid #e2e8f0' }}>
-        <h3 style={{ marginBottom: '1rem', color: '#1e293b' }}>📝 Edit Existing Device</h3>
-        <p style={{ marginBottom: '1.5rem', color: '#64748b', fontSize: '0.9rem' }}>
-          Select a device from the list below to edit its details:
+      <div className="edit-device-section">
+        <h3>📝 Edit Existing Device</h3>
+        <p className="edit-section-description">
+          Search and select a device to edit its details:
         </p>
-        {devices.length === 0 ? (
-          <p style={{ color: '#94a3b8', fontStyle: 'italic' }}>No devices found. Add a device first.</p>
-        ) : (
-          <div className="device-list" style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
-            gap: '1rem' 
-          }}>
-            {devices.map(device => (
-              <div 
-                key={device.id} 
-                onClick={() => loadDeviceForEdit(device)}
-                style={{
-                  padding: '1rem',
-                  border: '2px solid #e2e8f0',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  background: selectedDeviceId === device.id ? '#eff6ff' : 'white'
-                }}
-                onMouseEnter={(e) => {
-                  if (selectedDeviceId !== device.id) {
-                    e.currentTarget.style.borderColor = '#667eea'
-                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.1)'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (selectedDeviceId !== device.id) {
-                    e.currentTarget.style.borderColor = '#e2e8f0'
-                    e.currentTarget.style.boxShadow = 'none'
-                  }
-                }}
-              >
-                <div style={{ fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>
-                  {device.hostname}
+        <div className="device-search-wrapper" style={{ position: 'relative' }}>
+          <input
+            type="text"
+            placeholder="Type to search by name, inventory code, location, city, or serial number..."
+            value={deviceSearchQuery}
+            onChange={(e) => {
+              setDeviceSearchQuery(e.target.value)
+              setShowDeviceDropdown(true)
+              if (!e.target.value) {
+                setEditing(false)
+                setSelectedDeviceId(null)
+              }
+            }}
+            onFocus={() => {
+              if (deviceSearchQuery) setShowDeviceDropdown(true)
+            }}
+            className="device-search-input"
+          />
+          {showDeviceDropdown && filteredDevices.length > 0 && (
+            <div className="device-dropdown">
+              {filteredDevices.map(device => (
+                <div
+                  key={device.id}
+                  onClick={() => loadDeviceForEdit(device)}
+                  className="device-dropdown-item"
+                >
+                  <div className="device-dropdown-name">{device.hostname}</div>
+                  <div className="device-dropdown-details">
+                    {device.device_inventory_code && <span>{device.device_inventory_code}</span>}
+                    {device.host_location && <span>📍 {device.host_location}</span>}
+                    {device.city_town_village && <span>🏙️ {device.city_town_village}</span>}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                  {device.device_inventory_code && <div>Code: {device.device_inventory_code}</div>}
-                  {device.host_location && <div>Location: {device.host_location}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+          {deviceSearchQuery && filteredDevices.length === 0 && showDeviceDropdown && (
+            <div className="device-dropdown">
+              <div className="device-dropdown-empty">No devices found matching "{deviceSearchQuery}"</div>
+            </div>
+          )}
+        </div>
+        {devices.length > 0 && !deviceSearchQuery && (
+          <p className="edit-hint">
+            💡 Start typing to search through {devices.length} devices
+          </p>
         )}
       </div>
     </div>

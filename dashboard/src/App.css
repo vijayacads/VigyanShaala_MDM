@@ -156,21 +156,6 @@ body {
   font-weight: 700;
 }
 
-.content-wrapper {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-.sidebar {
-  width: 280px;
-  background: white;
-  border-right: 1px solid #e2e8f0;
-  padding: 2rem;
-  overflow-y: auto;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
-}
-
 .main-content {
   flex: 1;
   display: flex;
@@ -181,24 +166,13 @@ body {
   background: #f8fafc;
 }
 
-.map-section {
-  height: 500px;
-  min-height: 500px;
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-  order: 1;
-}
-
 .inventory-section {
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
-  order: 2;
+  order: 1;
 }
 
 .device-details-panel {
@@ -207,7 +181,7 @@ body {
   padding: 20px;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
-  order: 3;
+  order: 2;
 }
 
 .alerts-section {
@@ -216,6 +190,17 @@ body {
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  order: 3;
+}
+
+.map-section {
+  height: 500px;
+  min-height: 500px;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
   order: 4;
 }
 

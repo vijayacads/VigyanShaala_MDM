@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.config'
-import LocationFilter from './components/LocationFilter'
 import DeviceMap from './components/DeviceMap'
 import AppInventory from './components/AppInventory'
 import GeofenceAlerts from './components/GeofenceAlerts'
 import WebsiteBlocklist from './components/WebsiteBlocklist'
 import SoftwareBlocklist from './components/SoftwareBlocklist'
 import AddDevice from './components/AddDevice'
+import DeviceSearchFilter from './components/DeviceSearchFilter'
 import './App.css'
 
 interface Device {
@@ -25,10 +25,20 @@ interface Device {
   serial_number?: string
 }
 
+interface DeviceFilters {
+  searchText: string
+  locationId: string | null
+  city: string
+}
+
 function App() {
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'add-device'>('dashboard')
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
+  const [filters, setFilters] = useState<DeviceFilters>({
+    searchText: '',
+    locationId: null,
+    city: ''
+  })
 
   return (
     <div className="app">
@@ -69,64 +79,58 @@ function App() {
           </nav>
         </aside>
 
-        <div className="content-wrapper">
-          <aside className="sidebar">
-            <LocationFilter 
-              selectedLocation={selectedLocation}
-              onLocationChange={setSelectedLocation}
-            />
-          </aside>
-
-          <main className="main-content">
-            {activeTab === 'dashboard' && (
-              <>
-                <section className="map-section">
-                  <DeviceMap locationId={selectedLocation} />
-                </section>
-
-                <section className="inventory-section">
-                  <AppInventory 
-                    locationId={selectedLocation}
-                    selectedDevice={selectedDevice}
-                    onDeviceSelect={setSelectedDevice}
-                    onCloseDetails={() => setSelectedDevice(null)}
-                  />
-                </section>
-
-                {selectedDevice && (
-                  <div style={{ marginTop: '1rem' }}></div>
-                )}
-
-                <section className="alerts-section">
-                  <GeofenceAlerts locationId={selectedLocation} />
-                </section>
-              </>
-            )}
-
-            {activeTab === 'add-device' && (
-              <section className="add-device-section">
-                <AddDevice 
-                  onDeviceAdded={() => {
-                    setActiveTab('dashboard')
-                    setSelectedDevice(null)
-                  }}
+        <main className="main-content">
+          {activeTab === 'dashboard' && (
+            <>
+              <section className="inventory-section">
+                <DeviceSearchFilter onFilterChange={setFilters} />
+                <AppInventory 
+                  locationId={filters.locationId}
+                  searchText={filters.searchText}
+                  cityFilter={filters.city}
+                  selectedDevice={selectedDevice}
+                  onDeviceSelect={setSelectedDevice}
+                  onCloseDetails={() => setSelectedDevice(null)}
                 />
               </section>
-            )}
 
-            {activeTab === 'websites' && (
-              <section className="blocklist-section">
-                <WebsiteBlocklist />
-              </section>
-            )}
+              {selectedDevice && (
+                <div style={{ marginTop: '1rem' }}></div>
+              )}
 
-            {activeTab === 'software' && (
-              <section className="blocklist-section">
-                <SoftwareBlocklist />
+              <section className="alerts-section">
+                <GeofenceAlerts locationId={filters.locationId} />
               </section>
-            )}
-          </main>
-        </div>
+
+              <section className="map-section">
+                <DeviceMap locationId={filters.locationId} />
+              </section>
+            </>
+          )}
+
+          {activeTab === 'add-device' && (
+            <section className="add-device-section">
+              <AddDevice 
+                onDeviceAdded={() => {
+                  setActiveTab('dashboard')
+                  setSelectedDevice(null)
+                }}
+              />
+            </section>
+          )}
+
+          {activeTab === 'websites' && (
+            <section className="blocklist-section">
+              <WebsiteBlocklist />
+            </section>
+          )}
+
+          {activeTab === 'software' && (
+            <section className="blocklist-section">
+              <SoftwareBlocklist />
+            </section>
+          )}
+        </main>
       </div>
     </div>
   )

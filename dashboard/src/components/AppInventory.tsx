@@ -7,7 +7,7 @@ import { supabase } from '../../supabase.config'
 import './AppInventory.css'
 
 interface Device {
-  id: number  // Internal ID (not displayed)
+  id: number
   hostname: string
   device_inventory_code?: string
   location_name: string
@@ -24,6 +24,8 @@ interface Device {
 
 interface AppInventoryProps {
   locationId: string | null
+  searchText?: string
+  cityFilter?: string
   onDeviceSelect?: (device: Device) => void
   selectedDevice: Device | null
   onCloseDetails: () => void
@@ -36,7 +38,7 @@ const StatusRenderer = (params: ICellRendererParams) => {
   return <span style={{ color, fontWeight: 'bold' }}>{status.toUpperCase().replace('_', ' ')}</span>
 }
 
-export default function AppInventory({ locationId, onDeviceSelect, selectedDevice, onCloseDetails }: AppInventoryProps) {
+export default function AppInventory({ locationId, searchText = '', cityFilter = '', onDeviceSelect, selectedDevice, onCloseDetails }: AppInventoryProps) {
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(true)
   
@@ -132,6 +134,31 @@ export default function AppInventory({ locationId, onDeviceSelect, selectedDevic
     }
   }
 
+  // Filter devices based on search text and city
+  const filteredDevices = useMemo(() => {
+    let filtered = devices
+
+    // Filter by search text (hostname, inventory code)
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase()
+      filtered = filtered.filter(device => 
+        device.hostname?.toLowerCase().includes(searchLower) ||
+        device.device_inventory_code?.toLowerCase().includes(searchLower) ||
+        device.serial_number?.toLowerCase().includes(searchLower)
+      )
+    }
+
+    // Filter by city
+    if (cityFilter.trim()) {
+      const cityLower = cityFilter.toLowerCase()
+      filtered = filtered.filter(device => 
+        device.city_town_village?.toLowerCase().includes(cityLower)
+      )
+    }
+
+    return filtered
+  }, [devices, searchText, cityFilter])
+
   const defaultColumnDefs: ColDef[] = useMemo(() => [
     { field: 'device_inventory_code', headerName: 'Inventory Code', sortable: true, filter: true, width: 150 },
     { field: 'hostname', headerName: 'Hostname', sortable: true, filter: true, width: 150 },
@@ -175,11 +202,11 @@ export default function AppInventory({ locationId, onDeviceSelect, selectedDevic
       <div className="inventory-container">
         <div className="inventory-header">
           <h2>📱 Device Inventory</h2>
-          <span className="device-count">{devices.length} devices</span>
+          <span className="device-count">{filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''}</span>
         </div>
         <div className="ag-theme-alpine" style={{ height: '800px', width: '100%' }}>
           <AgGridReact
-            rowData={devices}
+            rowData={filteredDevices}
             columnDefs={columnDefs}
             defaultColDef={{
               resizable: true,
