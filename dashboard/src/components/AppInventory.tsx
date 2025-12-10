@@ -7,7 +7,7 @@ import { supabase } from '../../supabase.config'
 import './AppInventory.css'
 
 interface Device {
-  id: number  // 6-digit device ID (100000-999999)
+  id: number  // Internal ID (not displayed)
   hostname: string
   device_inventory_code?: string
   location_name: string
@@ -25,6 +25,8 @@ interface Device {
 interface AppInventoryProps {
   locationId: string | null
   onDeviceSelect?: (device: Device) => void
+  selectedDevice: Device | null
+  onCloseDetails: () => void
 }
 
 // Status cell renderer component
@@ -34,10 +36,9 @@ const StatusRenderer = (params: ICellRendererParams) => {
   return <span style={{ color, fontWeight: 'bold' }}>{status.toUpperCase().replace('_', ' ')}</span>
 }
 
-export default function AppInventory({ locationId, onDeviceSelect }: AppInventoryProps) {
+export default function AppInventory({ locationId, onDeviceSelect, selectedDevice, onCloseDetails }: AppInventoryProps) {
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   
   // Load saved column state from localStorage
   const getSavedColumnState = () => {
@@ -132,7 +133,6 @@ export default function AppInventory({ locationId, onDeviceSelect }: AppInventor
   }
 
   const defaultColumnDefs: ColDef[] = useMemo(() => [
-    { field: 'id', headerName: 'Device ID', sortable: true, filter: true, width: 100 },
     { field: 'device_inventory_code', headerName: 'Inventory Code', sortable: true, filter: true, width: 150 },
     { field: 'hostname', headerName: 'Hostname', sortable: true, filter: true, width: 150 },
     { field: 'host_location', headerName: 'Host Location', sortable: true, filter: true, width: 180 },
@@ -154,7 +154,7 @@ export default function AppInventory({ locationId, onDeviceSelect }: AppInventor
   const [columnDefs, setColumnDefs] = useState<ColDef[]>(() => {
     const saved = getSavedColumnState()
     if (saved && saved.columnDefs) {
-      return saved.columnDefs
+      return saved.columnDefs.filter((col: ColDef) => col.field !== 'id')
     }
     return defaultColumnDefs
   })
@@ -165,54 +165,79 @@ export default function AppInventory({ locationId, onDeviceSelect }: AppInventor
 
   const handleRowClick = (event: any) => {
     const device = event.data as Device
-    setSelectedDevice(device)
     if (onDeviceSelect) {
       onDeviceSelect(device)
     }
   }
 
   return (
-    <div className="inventory-container">
-      <div className="inventory-header">
-        <h2>📱 Device Inventory</h2>
-        <span className="device-count">{devices.length} devices</span>
-      </div>
-      <div className="ag-theme-alpine" style={{ height: '800px', width: '100%' }}>
-        <AgGridReact
-          rowData={devices}
-          columnDefs={columnDefs}
-          defaultColDef={{
-            resizable: true,
-            sortable: true
-          }}
-          pagination={true}
-          paginationPageSize={50}
-          rowSelection="single"
-          onRowClicked={handleRowClick}
-          onColumnMoved={(event) => {
-            const columnState = event.columnApi.getColumnState()
-            saveColumnState({ columnState })
-          }}
-          onColumnResized={(event) => {
-            if (event.finished) {
+    <>
+      <div className="inventory-container">
+        <div className="inventory-header">
+          <h2>📱 Device Inventory</h2>
+          <span className="device-count">{devices.length} devices</span>
+        </div>
+        <div className="ag-theme-alpine" style={{ height: '800px', width: '100%' }}>
+          <AgGridReact
+            rowData={devices}
+            columnDefs={columnDefs}
+            defaultColDef={{
+              resizable: true,
+              sortable: true
+            }}
+            pagination={true}
+            paginationPageSize={50}
+            rowSelection="single"
+            onRowClicked={handleRowClick}
+            onColumnMoved={(event) => {
               const columnState = event.columnApi.getColumnState()
               saveColumnState({ columnState })
-            }
-          }}
-          onGridReady={(event) => {
-            const saved = getSavedColumnState()
-            if (saved && saved.columnState) {
-              event.columnApi.applyColumnState({ state: saved.columnState })
-            }
-          }}
-        />
+            }}
+            onColumnResized={(event) => {
+              if (event.finished) {
+                const columnState = event.columnApi.getColumnState()
+                saveColumnState({ columnState })
+              }
+            }}
+            onGridReady={(event) => {
+              const saved = getSavedColumnState()
+              if (saved && saved.columnState) {
+                const filteredState = saved.columnState.filter((state: any) => state.colId !== 'id')
+                event.columnApi.applyColumnState({ state: filteredState })
+              }
+            }}
+          />
+        </div>
       </div>
 
       {selectedDevice && (
-        <div className="device-details" style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '8px' }}>
-          <h3>Device Details: {selectedDevice.hostname}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
-            <div><strong>Device ID:</strong> {selectedDevice.id}</div>
+        <div className="device-details-panel" style={{ 
+          marginTop: '2rem', 
+          marginBottom: '2rem',
+          padding: '20px', 
+          border: '2px solid #3b82f6', 
+          borderRadius: '12px',
+          background: 'white',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0, color: '#1e293b' }}>Device Details: {selectedDevice.hostname}</h3>
+            <button 
+              onClick={onCloseDetails}
+              style={{ 
+                padding: '8px 16px', 
+                cursor: 'pointer',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: '600'
+              }}
+            >
+              Close
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px' }}>
             <div><strong>Inventory Code:</strong> {selectedDevice.device_inventory_code || 'N/A'}</div>
             <div><strong>Hostname:</strong> {selectedDevice.hostname}</div>
             <div><strong>Serial Number:</strong> {selectedDevice.serial_number || 'N/A'}</div>
@@ -241,24 +266,17 @@ export default function AppInventory({ locationId, onDeviceSelect }: AppInventor
             )}
           </div>
           {selectedDevice.compliance_status === 'non_compliant' && (
-            <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#fee2e2', borderRadius: '4px' }}>
+            <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#fee2e2', borderRadius: '8px', border: '1px solid #fecaca' }}>
               <strong>⚠️ Non-Compliance Reasons:</strong>
-              <ul style={{ margin: '8px 0 0 20px' }}>
+              <ul style={{ margin: '10px 0 0 20px', padding: 0 }}>
                 <li>Device may be outside geofence boundaries</li>
                 <li>Last seen more than 24 hours ago (if applicable)</li>
                 <li>Blocked software detected (check software inventory)</li>
               </ul>
             </div>
           )}
-          <button 
-            onClick={() => setSelectedDevice(null)}
-            style={{ marginTop: '10px', padding: '8px 16px', cursor: 'pointer' }}
-          >
-            Close Details
-          </button>
         </div>
       )}
-    </div>
+    </>
   )
 }
-

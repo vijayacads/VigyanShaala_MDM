@@ -131,18 +131,26 @@ body {
 
 .map-section {
   height: 500px;
-  border: 1px solid #e2e8f0;
+  min-height: 500px;
+  background: white;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  background: white;
+  margin-bottom: 2rem;
 }
 
 .inventory-section {
-  min-height: 900px;
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.device-details-panel {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
 }
@@ -153,7 +161,6 @@ body {
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  margin-top: 2rem;
 }
 
 .tabs {
@@ -197,6 +204,13 @@ body {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
+.add-device-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
 .map-loading {
   display: flex;
   align-items: center;
@@ -205,4 +219,3 @@ body {
   color: #64748b;
   font-size: 1.1rem;
 }
-

@@ -9,10 +9,26 @@ import SoftwareBlocklist from './components/SoftwareBlocklist'
 import AddDevice from './components/AddDevice'
 import './App.css'
 
+interface Device {
+  id: number
+  hostname: string
+  device_inventory_code?: string
+  location_name: string
+  host_location?: string
+  city_town_village?: string
+  laptop_model?: string
+  compliance_status: string
+  last_seen: string
+  os_version: string
+  latitude?: number
+  longitude?: number
+  serial_number?: string
+}
+
 function App() {
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'add-device'>('dashboard')
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
 
   return (
     <div className="app">
@@ -68,8 +84,15 @@ function App() {
               <section className="inventory-section">
                 <AppInventory 
                   locationId={selectedLocation}
+                  selectedDevice={selectedDevice}
+                  onDeviceSelect={setSelectedDevice}
+                  onCloseDetails={() => setSelectedDevice(null)}
                 />
               </section>
+
+              {selectedDevice && (
+                <div style={{ marginTop: '1rem' }}></div>
+              )}
 
               <section className="alerts-section">
                 <GeofenceAlerts locationId={selectedLocation} />
@@ -81,6 +104,7 @@ function App() {
             <section className="add-device-section">
               <AddDevice onDeviceAdded={() => {
                 setActiveTab('dashboard')
+                setSelectedDevice(null)
               }} />
             </section>
           )}
@@ -103,4 +127,3 @@ function App() {
 }
 
 export default App
-

@@ -2,19 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../../supabase.config'
 import './AddDevice.css'
 
-interface Location {
-  id: string
-  name: string
-}
-
 export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => void }) {
-  const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [formData, setFormData] = useState({
     hostname: '',
     device_inventory_code: '',
     serial_number: '',
-    location_id: '',
     host_location: '',
     city_town_village: '',
     laptop_model: '',
@@ -23,43 +17,51 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     os_version: '10.0.19045'
   })
 
-  useEffect(() => {
-    fetchLocations()
-  }, [])
-
-  async function fetchLocations() {
-    try {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name')
-
-      if (error) throw error
-      setLocations(data || [])
-    } catch (error) {
-      console.error('Error fetching locations:', error)
+  function validateCoordinates() {
+    const newErrors: { [key: string]: string } = {}
+    
+    if (formData.latitude) {
+      const lat = parseFloat(formData.latitude)
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        newErrors.latitude = 'Latitude must be between -90 and 90'
+      }
     }
+    
+    if (formData.longitude) {
+      const lon = parseFloat(formData.longitude)
+      if (isNaN(lon) || lon < -180 || lon > 180) {
+        newErrors.longitude = 'Longitude must be between -180 and 180'
+      }
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    
+    if (!validateCoordinates()) {
+      alert('Please fix the coordinate validation errors')
+      return
+    }
+    
     setLoading(true)
+    setErrors({})
 
     try {
       const deviceData = {
         hostname: formData.hostname,
         device_inventory_code: formData.device_inventory_code || null,
         serial_number: formData.serial_number || null,
-        location_id: formData.location_id || null,
         host_location: formData.host_location || null,
         city_town_village: formData.city_town_village || null,
         laptop_model: formData.laptop_model || null,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         os_version: formData.os_version,
-        compliance_status: 'unknown',  // Automated
-        last_seen: new Date().toISOString()  // Automated
+        compliance_status: 'unknown',
+        last_seen: new Date().toISOString()
       }
 
       const { error } = await supabase
@@ -70,12 +72,10 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
 
       alert('Device added successfully!')
       
-      // Reset form
       setFormData({
         hostname: '',
         device_inventory_code: '',
         serial_number: '',
-        location_id: '',
         host_location: '',
         city_town_village: '',
         laptop_model: '',
@@ -136,21 +136,6 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
           </div>
 
           <div className="form-group">
-            <label>Location</label>
-            <select
-              value={formData.location_id}
-              onChange={(e) => setFormData({ ...formData, location_id: e.target.value })}
-            >
-              <option value="">Select Location...</option>
-              {locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="form-row">
-          <div className="form-group">
             <label>City/Town/Village</label>
             <input
               type="text"
@@ -159,7 +144,9 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
               placeholder="Pune, Mumbai, etc."
             />
           </div>
+        </div>
 
+        <div className="form-row">
           <div className="form-group">
             <label>Laptop Model</label>
             <input
@@ -169,9 +156,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
               placeholder="Dell Latitude, HP ProBook, etc."
             />
           </div>
-        </div>
 
-        <div className="form-row">
           <div className="form-group">
             <label>Serial Number</label>
             <input
@@ -181,7 +166,9 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
               placeholder="SN123456789"
             />
           </div>
+        </div>
 
+        <div className="form-row">
           <div className="form-group">
             <label>OS Version</label>
             <input
@@ -195,28 +182,55 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
 
         <div className="form-row">
           <div className="form-group">
-            <label>Latitude</label>
+            <label>Latitude * (-90 to 90)</label>
             <input
               type="number"
               step="any"
+              min="-90"
+              max="90"
               value={formData.latitude}
-              onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, latitude: e.target.value })
+                if (errors.latitude) {
+                  setErrors({ ...errors, latitude: '' })
+                }
+              }}
+              onBlur={validateCoordinates}
               placeholder="18.5204"
+              required
             />
+            {errors.latitude && (
+              <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                {errors.latitude}
+              </span>
+            )}
           </div>
 
           <div className="form-group">
-            <label>Longitude</label>
+            <label>Longitude * (-180 to 180)</label>
             <input
               type="number"
               step="any"
+              min="-180"
+              max="180"
               value={formData.longitude}
-              onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, longitude: e.target.value })
+                if (errors.longitude) {
+                  setErrors({ ...errors, longitude: '' })
+                }
+              }}
+              onBlur={validateCoordinates}
               placeholder="73.8567"
+              required
             />
+            {errors.longitude && (
+              <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                {errors.longitude}
+              </span>
+            )}
           </div>
         </div>
-
 
         <button type="submit" disabled={loading} className="submit-btn">
           {loading ? 'Adding...' : 'Add Device'}
