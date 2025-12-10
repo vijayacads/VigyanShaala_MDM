@@ -40,87 +40,93 @@ function App() {
       </header>
 
       <div className="app-content">
-        <aside className="sidebar">
-          <LocationFilter 
-            selectedLocation={selectedLocation}
-            onLocationChange={setSelectedLocation}
-          />
-        </aside>
-
-        <main className="main-content">
-          <div className="tabs">
+        <aside className="nav-sidebar">
+          <nav className="vertical-tabs">
             <button
               className={activeTab === 'dashboard' ? 'active' : ''}
               onClick={() => setActiveTab('dashboard')}
             >
-              Dashboard
+              📊 Dashboard
             </button>
             <button
               className={activeTab === 'add-device' ? 'active' : ''}
               onClick={() => setActiveTab('add-device')}
             >
-              Add Device
+              ➕ Add/Edit Device
             </button>
             <button
               className={activeTab === 'websites' ? 'active' : ''}
               onClick={() => setActiveTab('websites')}
             >
-              Website Blocklist
+              🌐 Website Blocklist
             </button>
             <button
               className={activeTab === 'software' ? 'active' : ''}
               onClick={() => setActiveTab('software')}
             >
-              Software Blocklist
+              💻 Software Blocklist
             </button>
-          </div>
+          </nav>
+        </aside>
 
-          {activeTab === 'dashboard' && (
-            <>
-              <section className="map-section">
-                <DeviceMap locationId={selectedLocation} />
-              </section>
+        <div className="content-wrapper">
+          <aside className="sidebar">
+            <LocationFilter 
+              selectedLocation={selectedLocation}
+              onLocationChange={setSelectedLocation}
+            />
+          </aside>
 
-              <section className="inventory-section">
-                <AppInventory 
-                  locationId={selectedLocation}
-                  selectedDevice={selectedDevice}
-                  onDeviceSelect={setSelectedDevice}
-                  onCloseDetails={() => setSelectedDevice(null)}
+          <main className="main-content">
+            {activeTab === 'dashboard' && (
+              <>
+                <section className="map-section">
+                  <DeviceMap locationId={selectedLocation} />
+                </section>
+
+                <section className="inventory-section">
+                  <AppInventory 
+                    locationId={selectedLocation}
+                    selectedDevice={selectedDevice}
+                    onDeviceSelect={setSelectedDevice}
+                    onCloseDetails={() => setSelectedDevice(null)}
+                  />
+                </section>
+
+                {selectedDevice && (
+                  <div style={{ marginTop: '1rem' }}></div>
+                )}
+
+                <section className="alerts-section">
+                  <GeofenceAlerts locationId={selectedLocation} />
+                </section>
+              </>
+            )}
+
+            {activeTab === 'add-device' && (
+              <section className="add-device-section">
+                <AddDevice 
+                  onDeviceAdded={() => {
+                    setActiveTab('dashboard')
+                    setSelectedDevice(null)
+                  }}
                 />
               </section>
+            )}
 
-              {selectedDevice && (
-                <div style={{ marginTop: '1rem' }}></div>
-              )}
-
-              <section className="alerts-section">
-                <GeofenceAlerts locationId={selectedLocation} />
+            {activeTab === 'websites' && (
+              <section className="blocklist-section">
+                <WebsiteBlocklist />
               </section>
-            </>
-          )}
+            )}
 
-          {activeTab === 'add-device' && (
-            <section className="add-device-section">
-              <AddDevice onDeviceAdded={() => {
-                setActiveTab('dashboard')
-                setSelectedDevice(null)
-              }} />
-            </section>
-          )}
-
-          {activeTab === 'websites' && (
-            <section className="blocklist-section">
-              <WebsiteBlocklist />
-            </section>
-          )}
-
-          {activeTab === 'software' && (
-            <section className="blocklist-section">
-              <SoftwareBlocklist />
-            </section>
-          )}
-        </main>
+            {activeTab === 'software' && (
+              <section className="blocklist-section">
+                <SoftwareBlocklist />
+              </section>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   )
