@@ -9,11 +9,21 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-k
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false,
-    autoRefreshToken: false
+    autoRefreshToken: false,
+    detectSessionInUrl: false
   },
   realtime: {
     params: {
       eventsPerSecond: 10
+    }
+  },
+  // Use anon key for demo mode (works if RLS is disabled or allows anon)
+  db: {
+    schema: 'public'
+  },
+  global: {
+    headers: {
+      'apikey': supabaseAnonKey
     }
   }
 })

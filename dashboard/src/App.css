@@ -138,13 +138,22 @@ body {
   background: white;
 }
 
-.inventory-section,
+.inventory-section {
+  min-height: 900px;
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
 .alerts-section {
   min-height: 400px;
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
 }
 
 .tabs {

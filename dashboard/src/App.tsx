@@ -6,18 +6,20 @@ import AppInventory from './components/AppInventory'
 import GeofenceAlerts from './components/GeofenceAlerts'
 import WebsiteBlocklist from './components/WebsiteBlocklist'
 import SoftwareBlocklist from './components/SoftwareBlocklist'
+import AddDevice from './components/AddDevice'
 import './App.css'
 
 function App() {
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'add-device'>('dashboard')
+  const [refreshKey, setRefreshKey] = useState(0)
 
   return (
     <div className="app">
       <header className="app-header">
         <h1>VigyanShaala MDM Dashboard</h1>
         <div className="user-info">
-          <span>Demo Mode</span>
+          <span>Admin Mode</span>
         </div>
       </header>
 
@@ -38,6 +40,12 @@ function App() {
               Dashboard
             </button>
             <button
+              className={activeTab === 'add-device' ? 'active' : ''}
+              onClick={() => setActiveTab('add-device')}
+            >
+              Add Device
+            </button>
+            <button
               className={activeTab === 'websites' ? 'active' : ''}
               onClick={() => setActiveTab('websites')}
             >
@@ -54,17 +62,29 @@ function App() {
           {activeTab === 'dashboard' && (
             <>
               <section className="map-section">
-                <DeviceMap locationId={selectedLocation} />
+                <DeviceMap locationId={selectedLocation} key={refreshKey} />
               </section>
 
               <section className="inventory-section">
-                <AppInventory locationId={selectedLocation} />
+                <AppInventory 
+                  locationId={selectedLocation} 
+                  key={refreshKey}
+                />
               </section>
 
               <section className="alerts-section">
                 <GeofenceAlerts locationId={selectedLocation} />
               </section>
             </>
+          )}
+
+          {activeTab === 'add-device' && (
+            <section className="add-device-section">
+              <AddDevice onDeviceAdded={() => {
+                setRefreshKey(k => k + 1)
+                setActiveTab('dashboard')
+              }} />
+            </section>
           )}
 
           {activeTab === 'websites' && (

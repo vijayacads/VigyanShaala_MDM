@@ -15,9 +15,13 @@ CREATE SEQUENCE IF NOT EXISTS device_id_seq
 CREATE TABLE IF NOT EXISTS devices (
     id INTEGER PRIMARY KEY DEFAULT nextval('device_id_seq'),
     hostname TEXT NOT NULL,
+    device_inventory_code TEXT,
     serial_number TEXT,
     fleet_uuid TEXT UNIQUE,
     location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
+    host_location TEXT,  -- College, Lab, etc.
+    city_town_village TEXT,
+    laptop_model TEXT,
     assigned_teacher_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
