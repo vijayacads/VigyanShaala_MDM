@@ -20,12 +20,12 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon
 
 interface Device {
-  id: string
+  id: number  // 6-digit device ID (100000-999999)
   hostname: string
   latitude: number
   longitude: number
   compliance_status: string
-  location_id: string
+  location_id: string  // UUID for location
 }
 
 interface Location {

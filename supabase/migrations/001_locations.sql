@@ -1,4 +1,8 @@
--- Locations table for 100+ school locations
+-- =====================================================
+-- Locations Table
+-- Stores school locations with geofence boundaries
+-- =====================================================
+
 CREATE TABLE IF NOT EXISTS locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -11,14 +15,14 @@ CREATE TABLE IF NOT EXISTS locations (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index for geofence queries
+-- Indexes
 CREATE INDEX idx_locations_coords ON locations(latitude, longitude);
 CREATE INDEX idx_locations_active ON locations(is_active) WHERE is_active = true;
 
 -- Enable RLS
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 
--- Policy: All authenticated users can read locations (for dropdown selection)
+-- Policy: All authenticated users can read locations
 CREATE POLICY "Locations are readable by authenticated users"
     ON locations FOR SELECT
     TO authenticated
@@ -50,8 +54,7 @@ CREATE TRIGGER update_locations_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Seed some example locations (100+ will be added via CSV import or admin UI)
--- Format: name, address, latitude, longitude, radius_meters
+-- Seed 5 locations
 INSERT INTO locations (name, address, latitude, longitude, radius_meters) VALUES
 ('Pune School 1', 'Pune, Maharashtra', 18.5204, 73.8567, 500),
 ('Mumbai School 1', 'Mumbai, Maharashtra', 19.0760, 72.8777, 500),
@@ -59,4 +62,3 @@ INSERT INTO locations (name, address, latitude, longitude, radius_meters) VALUES
 ('Bangalore School 1', 'Bangalore, Karnataka', 12.9716, 77.5946, 500),
 ('Hyderabad School 1', 'Hyderabad, Telangana', 17.3850, 78.4867, 500)
 ON CONFLICT DO NOTHING;
-

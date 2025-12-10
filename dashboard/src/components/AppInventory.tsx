@@ -7,7 +7,7 @@ import { supabase } from '../../supabase.config'
 import './AppInventory.css'
 
 interface Device {
-  id: string
+  id: number  // 6-digit device ID (100000-999999)
   hostname: string
   location_name: string
   compliance_status: string
@@ -52,7 +52,8 @@ export default function AppInventory({ locationId }: AppInventoryProps) {
           compliance_status,
           last_seen,
           os_version,
-          locations!left(name)
+          location_id,
+          locations(name)
         `)
 
       if (locationId) {

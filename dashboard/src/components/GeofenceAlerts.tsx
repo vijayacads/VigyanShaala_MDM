@@ -4,7 +4,7 @@ import './GeofenceAlerts.css'
 
 interface GeofenceAlert {
   id: string
-  device_id: string
+  device_id: number  // 6-digit device ID (100000-999999)
   location_id: string
   violation_type: string
   latitude: number
