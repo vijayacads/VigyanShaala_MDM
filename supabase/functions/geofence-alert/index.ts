@@ -43,11 +43,11 @@ serve(async (req) => {
       )
     }
 
-    // Get device with location
+    // Get device with location (device_id is now hostname after migration 008)
     const { data: device, error: deviceError } = await supabaseClient
       .from('devices')
-      .select('id, location_id, latitude, longitude')
-      .eq('id', device_id)
+      .select('hostname, location_id, latitude, longitude')
+      .eq('hostname', device_id)
       .single()
 
     if (deviceError || !device) {
@@ -78,7 +78,10 @@ serve(async (req) => {
       )
     }
 
-    // Calculate distance from device to location center
+    // Use default radius if not set (shouldn't happen, but safety check)
+    const radius = location.radius_meters || 1000
+
+    // Calculate distance from device to location center (in meters)
     const distance = calculateDistance(
       parseFloat(latitude.toString()),
       parseFloat(longitude.toString()),
@@ -87,7 +90,9 @@ serve(async (req) => {
     )
 
     // Check if device is outside geofence
-    const isOutside = distance > location.radius_meters
+    // THIS IS WHERE THE DISTANCE CHECK HAPPENS:
+    // If distance > radius_meters, device is outside the allowed boundary
+    const isOutside = distance > radius
 
     // Update device location
     await supabaseClient
@@ -97,7 +102,7 @@ serve(async (req) => {
         longitude: longitude,
         last_seen: new Date().toISOString()
       })
-      .eq('id', device_id)
+      .eq('hostname', device_id)
 
     if (isOutside) {
       // Check if there's already an unresolved alert
@@ -114,7 +119,7 @@ serve(async (req) => {
         const { error: alertError } = await supabaseClient
           .from('geofence_alerts')
           .insert({
-            device_id: device_id,
+            device_id: device_id, // hostname
             location_id: location.id,
             violation_type: 'outside_bounds',
             latitude: latitude,
@@ -130,14 +135,15 @@ serve(async (req) => {
         await supabaseClient
           .from('devices')
           .update({ compliance_status: 'non_compliant' })
-          .eq('id', device_id)
+          .eq('hostname', device_id)
       }
 
       return new Response(
         JSON.stringify({
           status: 'violation',
-          message: `Device is ${Math.round(distance)}m outside ${location.name} geofence`,
+          message: `Device is ${Math.round(distance)}m outside ${location.name} geofence (radius: ${radius}m)`,
           distance_meters: Math.round(distance),
+          radius_meters: radius,
           location_name: location.name
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -155,13 +161,14 @@ serve(async (req) => {
       await supabaseClient
         .from('devices')
         .update({ compliance_status: 'compliant' })
-        .eq('id', device_id)
+        .eq('hostname', device_id)
 
       return new Response(
         JSON.stringify({
           status: 'compliant',
-          message: `Device is within ${location.name} geofence`,
+          message: `Device is within ${location.name} geofence (${Math.round(distance)}m from center, radius: ${radius}m)`,
           distance_meters: Math.round(distance),
+          radius_meters: radius,
           location_name: location.name
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -174,4 +181,3 @@ serve(async (req) => {
     )
   }
 })
-
