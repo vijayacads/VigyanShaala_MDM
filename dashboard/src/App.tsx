@@ -5,6 +5,7 @@ import AppInventory from './components/AppInventory'
 import GeofenceAlerts from './components/GeofenceAlerts'
 import WebsiteBlocklist from './components/WebsiteBlocklist'
 import SoftwareBlocklist from './components/SoftwareBlocklist'
+import DeviceDownloads from './components/DeviceDownloads'
 import AddDevice from './components/AddDevice'
 import DeviceSearchFilter from './components/DeviceSearchFilter'
 import './App.css'
@@ -31,7 +32,7 @@ interface DeviceFilters {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'add-device'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'downloads' | 'add-device'>('dashboard')
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [filters, setFilters] = useState<DeviceFilters>({
     searchText: '',
@@ -74,6 +75,12 @@ function App() {
               onClick={() => setActiveTab('software')}
             >
               💻 Software Blocklist
+            </button>
+            <button
+              className={activeTab === 'downloads' ? 'active' : ''}
+              onClick={() => setActiveTab('downloads')}
+            >
+              📥 Device Software Downloads
             </button>
           </nav>
         </aside>
@@ -127,6 +134,12 @@ function App() {
           {activeTab === 'software' && (
             <section className="blocklist-section">
               <SoftwareBlocklist />
+            </section>
+          )}
+
+          {activeTab === 'downloads' && (
+            <section className="downloads-section">
+              <DeviceDownloads />
             </section>
           )}
         </main>

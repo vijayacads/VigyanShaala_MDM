@@ -1,0 +1,178 @@
+.device-downloads-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.device-downloads-container h2 {
+  color: #1e40af;
+  margin-bottom: 0.5rem;
+}
+
+.downloads-description {
+  color: #64748b;
+  margin-bottom: 2rem;
+  font-size: 1.05rem;
+}
+
+.download-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.download-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.download-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.platform-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.download-card h3 {
+  color: #1e40af;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.platform-description {
+  color: #64748b;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.download-btn {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.windows-btn {
+  background: #0078d4;
+  color: white;
+}
+
+.windows-btn:hover {
+  background: #0063b1;
+  transform: scale(1.02);
+}
+
+.android-btn {
+  background: #3ddc84;
+  color: #1a1a1a;
+}
+
+.android-btn:hover {
+  background: #34c274;
+  transform: scale(1.02);
+}
+
+.download-info {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #475569;
+  text-align: left;
+  margin-top: 1rem;
+}
+
+.download-info strong {
+  color: #334155;
+}
+
+.installation-instructions {
+  background: #f1f5f9;
+  padding: 2rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.installation-instructions h3 {
+  color: #1e40af;
+  margin-bottom: 1.5rem;
+}
+
+.instructions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.instruction-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.instruction-section h4 {
+  color: #1e40af;
+  margin-bottom: 1rem;
+}
+
+.instruction-section ol {
+  padding-left: 1.5rem;
+  color: #475569;
+  line-height: 1.8;
+}
+
+.instruction-section code {
+  background: #e2e8f0;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.features-info {
+  background: #eff6ff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left: 4px solid #3b82f6;
+}
+
+.features-info h3 {
+  color: #1e40af;
+  margin-bottom: 1rem;
+}
+
+.features-info ul {
+  list-style: none;
+  padding: 0;
+  color: #475569;
+  line-height: 2;
+}
+
+.features-info li {
+  padding-left: 0;
+}
+
+@media (max-width: 768px) {
+  .download-buttons {
+    grid-template-columns: 1fr;
+  }
+  
+  .instructions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

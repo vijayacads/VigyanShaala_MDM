@@ -1,0 +1,19 @@
+﻿# VigyanShaala MDM Android App
+
+## APK Information
+- File: VigyanShaala-MDM-Android.apk
+- Version: 1.0.0
+- Minimum Android: 8.0 (API 26)
+- Package: com.vigyanshaala.mdm
+
+## Features
+- Device enrollment
+- Website blocking (via Private DNS/VPN)
+- App blocking (via Device Admin)
+- Automatic policy sync
+
+## Installation
+Install the APK file on Android devices.
+The app will guide users through enrollment.
+
+Note: This is a placeholder. The actual APK needs to be built using Android Studio.
