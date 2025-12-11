@@ -3,9 +3,21 @@
 # Run after osquery installation
 
 param(
-    [string]$SupabaseUrl = $env:SUPABASE_URL,
-    [string]$SupabaseAnonKey = $env:SUPABASE_ANON_KEY
+    [Parameter(Mandatory=$false)]
+    [string]$SupabaseUrl,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$SupabaseAnonKey
 )
+
+# If not provided as parameters, try environment variables
+if ([string]::IsNullOrWhiteSpace($SupabaseUrl)) {
+    $SupabaseUrl = $env:SUPABASE_URL
+}
+
+if ([string]::IsNullOrWhiteSpace($SupabaseAnonKey)) {
+    $SupabaseAnonKey = $env:SUPABASE_ANON_KEY
+}
 
 # Function to get device information automatically
 function Get-DeviceInfo {
@@ -64,7 +76,7 @@ function Show-DeviceEnrollmentForm {
     
     $form = New-Object System.Windows.Forms.Form
     $form.Text = "Device Enrollment - VigyanShaala MDM"
-    $form.Size = New-Object System.Drawing.Size(600, 650)
+    $form.Size = New-Object System.Drawing.Size(600, 750)
     $form.StartPosition = "CenterScreen"
     $form.FormBorderStyle = "FixedDialog"
     $form.MaximizeBox = $false
@@ -135,7 +147,7 @@ function Show-DeviceEnrollmentForm {
     $txtHostLocation = New-Object System.Windows.Forms.TextBox
     $txtHostLocation.Location = New-Object System.Drawing.Point(280, $yPos)
     $txtHostLocation.Size = New-Object System.Drawing.Size(280, $inputHeight)
-    $txtHostLocation.PlaceholderText = "e.g., Computer Lab, Classroom 101"
+    # Note: PlaceholderText not available in older .NET versions
     $form.Controls.Add($txtHostLocation)
     $yPos += $spacing
     
@@ -149,7 +161,7 @@ function Show-DeviceEnrollmentForm {
     $txtCity = New-Object System.Windows.Forms.TextBox
     $txtCity.Location = New-Object System.Drawing.Point(280, $yPos)
     $txtCity.Size = New-Object System.Drawing.Size(280, $inputHeight)
-    $txtCity.PlaceholderText = "e.g., Pune, Mumbai"
+    # Note: PlaceholderText not available in older .NET versions
     $form.Controls.Add($txtCity)
     $yPos += $spacing
     
@@ -191,7 +203,7 @@ function Show-DeviceEnrollmentForm {
     $txtLatitude = New-Object System.Windows.Forms.TextBox
     $txtLatitude.Location = New-Object System.Drawing.Point(280, $yPos)
     $txtLatitude.Size = New-Object System.Drawing.Size(280, $inputHeight)
-    $txtLatitude.PlaceholderText = "e.g., 18.5204"
+    # Note: PlaceholderText not available in older .NET versions - using label text instead
     $form.Controls.Add($txtLatitude)
     $yPos += $spacing
     
@@ -205,12 +217,37 @@ function Show-DeviceEnrollmentForm {
     $txtLongitude = New-Object System.Windows.Forms.TextBox
     $txtLongitude.Location = New-Object System.Drawing.Point(280, $yPos)
     $txtLongitude.Size = New-Object System.Drawing.Size(280, $inputHeight)
-    $txtLongitude.PlaceholderText = "e.g., 73.8567"
+    # Note: PlaceholderText not available in older .NET versions - using label text instead
     $form.Controls.Add($txtLongitude)
     $yPos += $spacing
     
-    # Note: Location selection removed - matching AddDevice component which doesn't use location_id
-    $yPos += 20
+    # Assigned Teacher
+    $label10 = New-Object System.Windows.Forms.Label
+    $label10.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label10.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label10.Text = "Assigned Teacher:"
+    $form.Controls.Add($label10)
+    
+    $txtAssignedTeacher = New-Object System.Windows.Forms.TextBox
+    $txtAssignedTeacher.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtAssignedTeacher.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $form.Controls.Add($txtAssignedTeacher)
+    $yPos += $spacing
+    
+    # Assigned Student Leader
+    $label11 = New-Object System.Windows.Forms.Label
+    $label11.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label11.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label11.Text = "Assigned Student Leader:"
+    $form.Controls.Add($label11)
+    
+    $txtAssignedStudentLeader = New-Object System.Windows.Forms.TextBox
+    $txtAssignedStudentLeader.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtAssignedStudentLeader.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $form.Controls.Add($txtAssignedStudentLeader)
+    $yPos += $spacing
+    
+    $yPos += 10
     
     # Buttons
     $btnRegister = New-Object System.Windows.Forms.Button
@@ -229,8 +266,8 @@ function Show-DeviceEnrollmentForm {
     $form.Controls.Add($btnCancel)
     
     # Validation and submission
-    $result = $null
-    $formData = $null
+    # Use script scope to ensure variable is accessible outside scriptblock
+    $script:formDataResult = $null
     
     $btnRegister.Add_Click({
         # Validation
@@ -266,8 +303,9 @@ function Show-DeviceEnrollmentForm {
             return
         }
         
-        # Prepare form data - matching AddDevice component exactly (no location_id, no device ID)
-        $formData = @{
+        # Prepare form data - matching AddDevice component exactly (no location_id, no device ID, no fleet_uuid)
+        # Use script scope to ensure variable persists outside this scriptblock
+        $script:formDataResult = @{
             device_inventory_code = $txtInventoryCode.Text.Trim()
             hostname = $txtHostname.Text.Trim()
             serial_number = if ([string]::IsNullOrWhiteSpace($txtSerial.Text)) { $null } else { $txtSerial.Text.Trim() }
@@ -277,16 +315,27 @@ function Show-DeviceEnrollmentForm {
             os_version = if ([string]::IsNullOrWhiteSpace($txtOSVersion.Text)) { $null } else { $txtOSVersion.Text.Trim() }
             latitude = [double]$txtLatitude.Text
             longitude = [double]$txtLongitude.Text
+            assigned_teacher = if ([string]::IsNullOrWhiteSpace($txtAssignedTeacher.Text)) { $null } else { $txtAssignedTeacher.Text.Trim() }
+            assigned_student_leader = if ([string]::IsNullOrWhiteSpace($txtAssignedStudentLeader.Text)) { $null } else { $txtAssignedStudentLeader.Text.Trim() }
         }
         
+        Write-Host "Form data captured successfully" -ForegroundColor Green
         $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $form.Close()
     })
     
     $dialogResult = $form.ShowDialog()
     
-    if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK -and $formData) {
-        return $formData
+    # Return the form data if dialog was OK
+    if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
+        if ($script:formDataResult) {
+            Write-Host "Returning form data..." -ForegroundColor Green
+            return $script:formDataResult
+        } else {
+            Write-Host "Warning: Form closed with OK but no data captured" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Form cancelled by user" -ForegroundColor Yellow
     }
     
     return $null
@@ -296,53 +345,74 @@ function Show-DeviceEnrollmentForm {
 function Register-DeviceInSupabase {
     param($deviceData)
     
+    $headers = @{
+        "apikey" = $SupabaseAnonKey
+        "Content-Type" = "application/json"
+        "Authorization" = "Bearer $SupabaseAnonKey"
+        "Prefer" = "return=representation"
+    }
+    
+    # Build body exactly matching AddDevice component - NO location_id, NO device ID
+    $body = @{
+        hostname = $deviceData.hostname
+        device_inventory_code = if ([string]::IsNullOrWhiteSpace($deviceData.device_inventory_code)) { $null } else { $deviceData.device_inventory_code }
+        serial_number = if ([string]::IsNullOrWhiteSpace($deviceData.serial_number)) { $null } else { $deviceData.serial_number }
+        host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }
+        city_town_village = if ([string]::IsNullOrWhiteSpace($deviceData.city_town_village)) { $null } else { $deviceData.city_town_village }
+        laptop_model = if ([string]::IsNullOrWhiteSpace($deviceData.laptop_model)) { $null } else { $deviceData.laptop_model }
+        latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }
+        longitude = if ($deviceData.longitude) { [double]$deviceData.longitude } else { $null }
+        os_version = if ([string]::IsNullOrWhiteSpace($deviceData.os_version)) { $null } else { $deviceData.os_version }
+        compliance_status = "unknown"
+        last_seen = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+    } | ConvertTo-Json -Depth 10
+    
+    Write-Host "Registering device..." -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Device Data:" -ForegroundColor Yellow
+    Write-Host "  Hostname: $($deviceData.hostname)" -ForegroundColor White
+    Write-Host "  Inventory Code: $($deviceData.device_inventory_code)" -ForegroundColor White
+    Write-Host "  Host Location: $($deviceData.host_location)" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Preparing device registration request..." -ForegroundColor Cyan
+    # Not displaying URL or body for security reasons
+    Write-Host "Connecting to server..." -ForegroundColor Gray
+    Write-Host ""
+    
     try {
-        $headers = @{
-            "apikey" = $SupabaseAnonKey
-            "Content-Type" = "application/json"
-            "Authorization" = "Bearer $SupabaseAnonKey"
-            "Prefer" = "return=representation"
-        }
-        
-        # Build body exactly matching AddDevice component - NO location_id, NO device ID
-        $body = @{
-            hostname = $deviceData.hostname
-            device_inventory_code = if ([string]::IsNullOrWhiteSpace($deviceData.device_inventory_code)) { $null } else { $deviceData.device_inventory_code }
-            serial_number = if ([string]::IsNullOrWhiteSpace($deviceData.serial_number)) { $null } else { $deviceData.serial_number }
-            host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }
-            city_town_village = if ([string]::IsNullOrWhiteSpace($deviceData.city_town_village)) { $null } else { $deviceData.city_town_village }
-            laptop_model = if ([string]::IsNullOrWhiteSpace($deviceData.laptop_model)) { $null } else { $deviceData.laptop_model }
-            latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }
-            longitude = if ($deviceData.longitude) { [double]$deviceData.longitude } else { $null }
-            os_version = if ([string]::IsNullOrWhiteSpace($deviceData.os_version)) { $null } else { $deviceData.os_version }
-            compliance_status = "unknown"
-            last_seen = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        } | ConvertTo-Json -Depth 10
-        
-        Write-Host "Registering device in Supabase..." -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "Device Data:" -ForegroundColor Yellow
-        Write-Host "  Hostname: $($deviceData.hostname)" -ForegroundColor White
-        Write-Host "  Inventory Code: $($deviceData.device_inventory_code)" -ForegroundColor White
-        Write-Host "  Host Location: $($deviceData.host_location)" -ForegroundColor White
-        Write-Host ""
-        Write-Host "Preparing device registration request..." -ForegroundColor Cyan
-        
         $response = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices" `
-            -Method POST -Headers $headers -Body $body
+            -Method POST -Headers $headers -Body $body `
+            -ErrorAction Stop
+        
+        Write-Host "Registration successful!" -ForegroundColor Green
+        Write-Host "Response:" -ForegroundColor Cyan
+        $response | ConvertTo-Json -Depth 5 | Write-Host
+        Write-Host ""
         
         return $response
     }
     catch {
         $errorDetails = $_.Exception.Message
         $statusCode = $null
+        $responseBody = ""
+        
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host "ERROR: Registration Failed!" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host ""
         
         if ($_.Exception.Response) {
             $statusCode = [int]$_.Exception.Response.StatusCode.value__
-            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-            $reader.BaseStream.Position = 0
-            $reader.DiscardBufferedData()
-            $responseBody = $reader.ReadToEnd()
+            try {
+                $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                $reader.BaseStream.Position = 0
+                $reader.DiscardBufferedData()
+                $responseBody = $reader.ReadToEnd()
+            }
+            catch {
+                $responseBody = "Could not read response body"
+            }
             
             Write-Host "HTTP Status Code: $statusCode" -ForegroundColor Red
             Write-Host "Response Body: $responseBody" -ForegroundColor Red
@@ -352,6 +422,36 @@ function Register-DeviceInSupabase {
                 $errorDetails = $responseBody
             }
         }
+        else {
+            Write-Host "Exception: $_" -ForegroundColor Red
+            Write-Host ""
+        }
+        
+        Write-Host "Troubleshooting Steps:" -ForegroundColor Yellow
+        Write-Host "1. Check internet connection" -ForegroundColor White
+        Write-Host "2. Verify server configuration" -ForegroundColor White
+        Write-Host "3. Contact administrator if problem persists" -ForegroundColor White
+        Write-Host ""
+        
+        # Show error in GUI
+        $errorMsg = "Registration failed!`n`n"
+        if ($statusCode) {
+            $errorMsg += "HTTP Status: $statusCode`n`n"
+        }
+        $errorMsg += "Error: $errorDetails`n`n"
+        $errorMsg += "Check PowerShell window for details."
+        
+        try {
+            [System.Windows.Forms.MessageBox]::Show(
+                $errorMsg,
+                "Registration Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+        }
+        catch {
+            # GUI not available
+        }
         
         Write-Error "Failed to register device: $errorDetails"
         return $null
@@ -360,27 +460,107 @@ function Register-DeviceInSupabase {
 
 # Main enrollment flow
 Write-Host "Starting device enrollment..." -ForegroundColor Cyan
+# Credentials check (not displaying for security)
+if ([string]::IsNullOrWhiteSpace($SupabaseUrl) -or [string]::IsNullOrWhiteSpace($SupabaseAnonKey)) {
+    Write-Host "Configuration: [NOT SET]" -ForegroundColor Yellow
+} else {
+    Write-Host "Configuration: [READY]" -ForegroundColor Green
+}
+Write-Host ""
+
+# Add error handling to prevent window from closing
+try {
+    # Load Windows Forms (required for GUI)
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+    Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+    Write-Host "Windows Forms loaded successfully" -ForegroundColor Green
+} catch {
+    [System.Windows.Forms.MessageBox]::Show(
+        "Error loading Windows Forms: $_`n`nPlease run this script on a Windows system with .NET Framework installed.",
+        "System Error",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Error
+    )
+    Write-Host "Error loading Windows Forms: $_" -ForegroundColor Red
+    Write-Host "Press Enter to exit..." -ForegroundColor Yellow
+    try {
+        $null = Read-Host
+    } catch {
+        Start-Sleep -Seconds 2
+    }
+    exit 1
+}
 
 # Check environment variables
 if ([string]::IsNullOrWhiteSpace($SupabaseUrl) -or [string]::IsNullOrWhiteSpace($SupabaseAnonKey)) {
+    $errorMsg = "Configuration error: Server credentials not found.`n`n"
+    $errorMsg += "Please ensure credentials are properly configured.`n"
+    $errorMsg += "Contact administrator if this error persists."
+    
     [System.Windows.Forms.MessageBox]::Show(
-        "Configuration error: Supabase credentials not found.`n`nPlease ensure SUPABASE_URL and SUPABASE_ANON_KEY are set.`n`nContact administrator for support.",
+        $errorMsg,
         "Configuration Error",
         [System.Windows.Forms.MessageBoxButtons]::OK,
         [System.Windows.Forms.MessageBoxIcon]::Error
     )
+    Write-Host "Configuration Error: $errorMsg" -ForegroundColor Red
+    Write-Host "Press Enter to exit..." -ForegroundColor Yellow
+    try {
+        $null = Read-Host
+    } catch {
+        Start-Sleep -Seconds 2
+    }
     exit 1
 }
 
 # Show enrollment form
-$formData = Show-DeviceEnrollmentForm
-
-if ($null -eq $formData) {
-    Write-Host "Enrollment cancelled by user" -ForegroundColor Yellow
-    exit 0
+Write-Host "Opening enrollment form..." -ForegroundColor Cyan
+try {
+    $formData = Show-DeviceEnrollmentForm
+    
+    if ($null -eq $formData) {
+        Write-Host "Enrollment cancelled by user" -ForegroundColor Yellow
+        Write-Host "Press Enter to exit..." -ForegroundColor Gray
+        try {
+            $null = Read-Host
+        } catch {
+            Start-Sleep -Seconds 2
+        }
+        exit 0
+    }
+    
+    Write-Host "Form submitted successfully" -ForegroundColor Green
+} catch {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "ERROR: Failed to show enrollment form" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Error: $_" -ForegroundColor Red
+    Write-Host "Stack Trace: $($_.ScriptStackTrace)" -ForegroundColor Red
+    Write-Host ""
+    
+    try {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error opening enrollment form: $_`n`nCheck PowerShell window for details.",
+            "Form Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    } catch {
+        Write-Host "Could not show error dialog (Forms not loaded)" -ForegroundColor Yellow
+    }
+    
+    Write-Host "Press Enter to exit..." -ForegroundColor Yellow
+    try {
+        $null = Read-Host
+    } catch {
+        Start-Sleep -Seconds 2
+    }
+    exit 1
 }
 
-Write-Host "Registering device in Supabase..." -ForegroundColor Cyan
+Write-Host "Registering device..." -ForegroundColor Cyan
 
 # Register device
 $device = Register-DeviceInSupabase -deviceData $formData
@@ -404,12 +584,36 @@ if ($device) {
     exit 0
 }
 else {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "ENROLLMENT FAILED" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "The device was NOT registered." -ForegroundColor Yellow
+    Write-Host "Check the error messages above for details." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Common issues:" -ForegroundColor Cyan
+    Write-Host "1. Check internet connection" -ForegroundColor White
+    Write-Host "2. Verify server configuration" -ForegroundColor White
+    Write-Host "3. Contact administrator if problem persists" -ForegroundColor White
+    Write-Host ""
+    
     [System.Windows.Forms.MessageBox]::Show(
-        "Enrollment failed. Please check your internet connection and try again.`n`nIf the problem persists, contact administrator.",
+        "Enrollment failed!`n`nThe device was NOT registered.`n`nCheck the PowerShell window for error details.`n`nCommon fixes:`n- Check internet connection`n- Verify server configuration`n- Contact administrator",
         "Enrollment Error",
         [System.Windows.Forms.MessageBoxButtons]::OK,
         [System.Windows.Forms.MessageBoxIcon]::Error
     )
+    
+    Write-Host ""
+    Write-Host "Press Enter to close..." -ForegroundColor Gray
+    try {
+        $null = Read-Host
+    } catch {
+        # If Read-Host fails, just wait a bit
+        Start-Sleep -Seconds 5
+    }
+    
     exit 1
 }
 

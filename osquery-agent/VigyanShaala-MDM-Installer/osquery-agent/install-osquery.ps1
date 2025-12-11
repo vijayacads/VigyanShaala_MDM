@@ -104,16 +104,55 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Start-Sleep -Seconds 2
     
     # Run enrollment script in new window so user can interact
-    # Pass Supabase credentials as parameters to ensure they're available
+    # Pass credentials as parameters since environment variables might not be inherited
+    # Use -NoExit to keep window open for debugging
     if (Test-Path $enrollScript) {
-        $enrollArgs = "-ExecutionPolicy Bypass -File `"$enrollScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+        $enrollArgs = "-NoExit -ExecutionPolicy Bypass -File `"$enrollScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+        Write-Host "Launching enrollment wizard..." -ForegroundColor Cyan
         Start-Process powershell.exe -ArgumentList $enrollArgs -Wait
     } else {
         Write-Warning "Enrollment script not found at $enrollScript"
     }
 } else {
     Write-Host "`nEnrollment wizard skipped (missing environment variables)" -ForegroundColor Yellow
-    Write-Host "Run enroll-fleet.ps1 manually after setting environment variables" -ForegroundColor Yellow
+    Write-Host "Run enroll-device.ps1 manually after setting environment variables" -ForegroundColor Yellow
+}
+
+# Step 8: Apply initial website blocklist and create sync task
+if ($SupabaseUrl -and $SupabaseKey) {
+    Write-Host "`nApplying website blocklist..." -ForegroundColor Cyan
+    $blocklistScript = "$InstallDir\apply-website-blocklist.ps1"
+    if (Test-Path "apply-website-blocklist.ps1") {
+        Copy-Item "apply-website-blocklist.ps1" $blocklistScript -Force
+        try {
+            & $blocklistScript -SupabaseUrl $SupabaseUrl -SupabaseAnonKey $SupabaseKey
+            Write-Host "Initial blocklist applied" -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not apply initial blocklist: $_"
+        }
+    }
+    
+    # Create scheduled task to sync blocklist every 30 minutes
+    Write-Host "Creating scheduled task to sync blocklist..." -ForegroundColor Cyan
+    $syncScript = "$InstallDir\sync-blocklist-scheduled.ps1"
+    if (Test-Path "sync-blocklist-scheduled.ps1") {
+        Copy-Item "sync-blocklist-scheduled.ps1" $syncScript -Force
+    }
+    
+    $taskName = "VigyanShaala-MDM-SyncBlocklist"
+    $taskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-ExecutionPolicy Bypass -File `"$syncScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+    $taskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30) -RepetitionDuration (New-TimeSpan -Days 365)
+    $taskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    
+    try {
+        Unregister-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Description "Sync website blocklist from MDM server" -Force | Out-Null
+        Write-Host "Scheduled task created successfully" -ForegroundColor Green
+        Write-Host "Blocklist will sync every 30 minutes" -ForegroundColor Gray
+    } catch {
+        Write-Warning "Could not create scheduled task: $_"
+    }
 }
 
 Write-Host "`nInstallation complete!" -ForegroundColor Green

@@ -24,20 +24,19 @@ serve(async (req) => {
 
     // Extract device info from osquery payload
     const hostname = payload.hostname || payload.host?.hostname
-    const fleetUuid = payload.uuid || payload.host?.uuid
 
-    if (!hostname && !fleetUuid) {
+    if (!hostname) {
       return new Response(
-        JSON.stringify({ error: 'Missing device identifier' }),
+        JSON.stringify({ error: 'Missing device hostname' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Find device by fleet_uuid or hostname
+    // Find device by hostname (hostname is now primary key after migration 008)
     const { data: device } = await supabaseClient
       .from('devices')
-      .select('id, location_id')
-      .or(`fleet_uuid.eq.${fleetUuid},hostname.eq.${hostname}`)
+      .select('hostname, location_id')
+      .eq('hostname', hostname)
       .single()
 
     if (!device) {
@@ -59,7 +58,7 @@ serve(async (req) => {
             longitude: geo.longitude,
             last_seen: new Date().toISOString()
           })
-          .eq('id', device.id)
+          .eq('hostname', device.hostname)
 
         // Trigger geofence check if device has location
         if (device.location_id) {
@@ -70,7 +69,7 @@ serve(async (req) => {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              device_id: device.id,
+              device_id: device.hostname,
               latitude: geo.latitude,
               longitude: geo.longitude
             })
@@ -112,7 +111,7 @@ serve(async (req) => {
         await supabaseClient
           .from('software_inventory')
           .upsert({
-            device_id: device.id,
+            device_id: device.hostname,
             name: program.name,
             version: program.version,
             path: program.install_location,
@@ -127,7 +126,7 @@ serve(async (req) => {
         await supabaseClient
           .from('devices')
           .update({ compliance_status: 'non_compliant' })
-          .eq('id', device.id)
+          .eq('hostname', device.hostname)
       }
     }
 
@@ -139,7 +138,7 @@ serve(async (req) => {
           await supabaseClient
             .from('web_activity')
             .insert({
-              device_id: device.id,
+              device_id: device.hostname,
               url: history.url,
               domain: url.hostname,
               category: categorizeDomain(url.hostname),
@@ -150,7 +149,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, device_id: device.id }),
+      JSON.stringify({ success: true, device_hostname: device.hostname }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

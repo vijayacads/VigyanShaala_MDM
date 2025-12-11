@@ -12,6 +12,8 @@ interface Device {
   latitude?: number
   longitude?: number
   os_version?: string
+  assigned_teacher?: string
+  assigned_student_leader?: string
 }
 
 export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => void }) {
@@ -31,7 +33,9 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     laptop_model: '',
     latitude: '',
     longitude: '',
-    os_version: '10.0.19045'
+    os_version: '10.0.19045',
+    assigned_teacher: '',
+    assigned_student_leader: ''
   })
 
   useEffect(() => {
@@ -42,7 +46,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     try {
       const { data, error } = await supabase
         .from('devices')
-        .select('hostname, device_inventory_code, serial_number, host_location, city_town_village, laptop_model, latitude, longitude, os_version')
+        .select('hostname, device_inventory_code, serial_number, host_location, city_town_village, laptop_model, latitude, longitude, os_version, assigned_teacher, assigned_student_leader')
         .order('hostname', { ascending: true })
 
       if (error) throw error
@@ -78,7 +82,9 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
       laptop_model: device.laptop_model || '',
       latitude: device.latitude?.toString() || '',
       longitude: device.longitude?.toString() || '',
-      os_version: device.os_version || '10.0.19045'
+      os_version: device.os_version || '10.0.19045',
+      assigned_teacher: device.assigned_teacher || '',
+      assigned_student_leader: device.assigned_student_leader || ''
     })
   }
 
@@ -95,7 +101,9 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
       laptop_model: '',
       latitude: '',
       longitude: '',
-      os_version: '10.0.19045'
+      os_version: '10.0.19045',
+      assigned_teacher: '',
+      assigned_student_leader: ''
     })
     setErrors({})
   }
@@ -142,7 +150,9 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
         laptop_model: formData.laptop_model || null,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-        os_version: formData.os_version
+        os_version: formData.os_version,
+        assigned_teacher: formData.assigned_teacher || null,
+        assigned_student_leader: formData.assigned_student_leader || null
       }
 
       if (editing && selectedDeviceHostname) {
@@ -261,6 +271,28 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
               value={formData.os_version}
               onChange={(e) => setFormData({ ...formData, os_version: e.target.value })}
               placeholder="10.0.19045"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Assigned Teacher</label>
+            <input
+              type="text"
+              value={formData.assigned_teacher}
+              onChange={(e) => setFormData({ ...formData, assigned_teacher: e.target.value })}
+              placeholder="Teacher name or ID"
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Assigned Student Leader</label>
+            <input
+              type="text"
+              value={formData.assigned_student_leader}
+              onChange={(e) => setFormData({ ...formData, assigned_student_leader: e.target.value })}
+              placeholder="Student leader name or ID"
             />
           </div>
         </div>

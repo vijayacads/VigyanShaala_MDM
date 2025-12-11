@@ -126,7 +126,9 @@ if (Test-Path $programDataDir) {
     }
 }
 
-# Step 5: Remove environment variables
+# Step 5: Remove environment variables (optional - commented out to preserve for reinstall)
+# Uncomment if you want to remove environment variables
+<#
 Write-Host "Removing environment variables..." -ForegroundColor Yellow
 try {
     [Environment]::SetEnvironmentVariable("SUPABASE_URL", $null, "Machine")
@@ -136,6 +138,7 @@ try {
 } catch {
     Write-Warning "Could not remove environment variables: $_"
 }
+#>
 
 # Step 6: Optionally remove device from Supabase
 if ($RemoveFromSupabase -and $SupabaseUrl -and $SupabaseAnonKey) {
@@ -176,6 +179,9 @@ Write-Host "Uninstallation Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "osquery agent has been removed from this computer." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Note: Environment variables were kept (in case you want to reinstall)." -ForegroundColor Gray
+Write-Host "      To remove them, edit this script and uncomment the environment variable removal section." -ForegroundColor Gray
 Write-Host ""
 
 pause

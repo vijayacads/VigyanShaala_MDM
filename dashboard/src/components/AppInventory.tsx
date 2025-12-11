@@ -19,6 +19,8 @@ interface Device {
   latitude?: number
   longitude?: number
   serial_number?: string
+  assigned_teacher?: string
+  assigned_student_leader?: string
 }
 
 interface AppInventoryProps {
@@ -97,6 +99,8 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
           latitude,
           longitude,
           serial_number,
+          assigned_teacher,
+          assigned_student_leader,
           locations(name)
         `)
 
@@ -120,7 +124,9 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
         os_version: d.os_version || 'Unknown',
         latitude: d.latitude,
         longitude: d.longitude,
-        serial_number: d.serial_number
+        serial_number: d.serial_number,
+        assigned_teacher: d.assigned_teacher,
+        assigned_student_leader: d.assigned_student_leader
       }))
 
       setDevices(formattedData)
