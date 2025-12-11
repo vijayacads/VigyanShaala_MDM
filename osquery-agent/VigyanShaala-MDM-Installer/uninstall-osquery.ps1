@@ -1,0 +1,182 @@
+# Uninstall Script for osquery Agent
+# This removes osquery and cleans up the installation
+
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$InstallDir = "$env:ProgramFiles\osquery",
+    
+    [Parameter(Mandatory=$false)]
+    [switch]$RemoveFromSupabase,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$SupabaseUrl = $env:SUPABASE_URL,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$SupabaseAnonKey = $env:SUPABASE_ANON_KEY
+)
+
+# Check for Administrator privileges
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "ERROR: This script requires Administrator privileges" -ForegroundColor Red
+    Write-Host "Please right-click and select 'Run as Administrator'" -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "VigyanShaala MDM - Uninstaller" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+$confirm = Read-Host "Are you sure you want to uninstall osquery agent? (Y/N)"
+if ($confirm -ne 'Y' -and $confirm -ne 'y') {
+    Write-Host "Uninstallation cancelled." -ForegroundColor Yellow
+    exit 0
+}
+
+Write-Host ""
+Write-Host "Starting uninstallation..." -ForegroundColor Yellow
+
+# Step 1: Stop and remove osquery service
+$serviceName = "osqueryd"
+$service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+
+if ($service) {
+    Write-Host "Stopping osquery service..." -ForegroundColor Yellow
+    try {
+        Stop-Service -Name $serviceName -Force -ErrorAction Stop
+        Start-Sleep -Seconds 2
+        Write-Host "Service stopped" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not stop service: $_"
+    }
+    
+    Write-Host "Removing osquery service..." -ForegroundColor Yellow
+    try {
+        & "$InstallDir\osqueryd.exe" --uninstall 2>$null
+        Start-Sleep -Seconds 2
+        Write-Host "Service removed" -ForegroundColor Green
+    } catch {
+        Write-Warning "Service may already be removed or osqueryd.exe not found"
+    }
+} else {
+    Write-Host "osquery service not found" -ForegroundColor Gray
+}
+
+# Step 2: Uninstall osquery MSI if installed via Windows Installer
+Write-Host "Checking for osquery MSI installation..." -ForegroundColor Yellow
+$osqueryProduct = Get-WmiObject Win32_Product | Where-Object { $_.Name -like "*osquery*" } | Select-Object -First 1
+
+if ($osqueryProduct) {
+    Write-Host "Found osquery MSI installation. Uninstalling..." -ForegroundColor Yellow
+    try {
+        $osqueryProduct.Uninstall()
+        Write-Host "osquery MSI uninstalled" -ForegroundColor Green
+        Start-Sleep -Seconds 3
+    } catch {
+        Write-Warning "Could not uninstall via MSI: $_"
+    }
+}
+
+# Step 3: Remove installation directory
+if (Test-Path $InstallDir) {
+    Write-Host "Removing installation directory..." -ForegroundColor Yellow
+    try {
+        # Wait a bit to ensure service is fully stopped
+        Start-Sleep -Seconds 2
+        
+        # Remove directory with retry
+        $maxRetries = 5
+        $retryCount = 0
+        $removed = $false
+        
+        while ($retryCount -lt $maxRetries -and -not $removed) {
+            try {
+                Remove-Item -Path $InstallDir -Recurse -Force -ErrorAction Stop
+                $removed = $true
+                Write-Host "Installation directory removed" -ForegroundColor Green
+            } catch {
+                $retryCount++
+                if ($retryCount -lt $maxRetries) {
+                    Write-Host "Retrying removal (attempt $retryCount/$maxRetries)..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 2
+                } else {
+                    Write-Warning "Could not remove directory: $_"
+                    Write-Host "You may need to manually delete: $InstallDir" -ForegroundColor Yellow
+                }
+            }
+        }
+    } catch {
+        Write-Warning "Could not remove installation directory: $_"
+    }
+} else {
+    Write-Host "Installation directory not found at: $InstallDir" -ForegroundColor Gray
+}
+
+# Step 4: Remove ProgramData directory
+$programDataDir = "$env:ProgramData\osquery"
+if (Test-Path $programDataDir) {
+    Write-Host "Removing ProgramData directory..." -ForegroundColor Yellow
+    try {
+        Remove-Item -Path $programDataDir -Recurse -Force -ErrorAction Stop
+        Write-Host "ProgramData directory removed" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not remove ProgramData directory: $_"
+        Write-Host "You may need to manually delete: $programDataDir" -ForegroundColor Yellow
+    }
+}
+
+# Step 5: Remove environment variables
+Write-Host "Removing environment variables..." -ForegroundColor Yellow
+try {
+    [Environment]::SetEnvironmentVariable("SUPABASE_URL", $null, "Machine")
+    [Environment]::SetEnvironmentVariable("SUPABASE_ANON_KEY", $null, "Machine")
+    [Environment]::SetEnvironmentVariable("FLEET_SERVER_URL", $null, "Machine")
+    Write-Host "Environment variables removed" -ForegroundColor Green
+} catch {
+    Write-Warning "Could not remove environment variables: $_"
+}
+
+# Step 6: Optionally remove device from Supabase
+if ($RemoveFromSupabase -and $SupabaseUrl -and $SupabaseAnonKey) {
+    Write-Host ""
+    Write-Host "Removing device from Supabase..." -ForegroundColor Yellow
+    
+    try {
+        $hostname = $env:COMPUTERNAME
+        
+        $headers = @{
+            "apikey" = $SupabaseAnonKey
+            "Content-Type" = "application/json"
+            "Authorization" = "Bearer $SupabaseAnonKey"
+        }
+        
+        # First, find the device
+        $response = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices?hostname=eq.$hostname&select=id" `
+            -Method GET -Headers $headers
+        
+        if ($response -and $response.Count -gt 0) {
+            $deviceId = $response[0].id
+            # Delete device
+            Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices?id=eq.$deviceId" `
+                -Method DELETE -Headers $headers | Out-Null
+            Write-Host "Device removed from Supabase (ID: $deviceId)" -ForegroundColor Green
+        } else {
+            Write-Host "Device not found in Supabase" -ForegroundColor Gray
+        }
+    } catch {
+        Write-Warning "Could not remove device from Supabase: $_"
+        Write-Host "You may need to remove it manually from the dashboard" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "Uninstallation Complete!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "osquery agent has been removed from this computer." -ForegroundColor Cyan
+Write-Host ""
+
+pause
+

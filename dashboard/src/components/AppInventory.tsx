@@ -7,7 +7,6 @@ import { supabase } from '../../supabase.config'
 import './AppInventory.css'
 
 interface Device {
-  id: number
   hostname: string
   device_inventory_code?: string
   location_name: string
@@ -86,7 +85,6 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
       let query = supabase
         .from('devices')
         .select(`
-          id,
           hostname,
           device_inventory_code,
           compliance_status,
@@ -111,7 +109,6 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
       if (error) throw error
 
       const formattedData = (data || []).map((d: any) => ({
-        id: d.id,
         hostname: d.hostname,
         device_inventory_code: d.device_inventory_code,
         location_name: d.locations?.name || 'Unassigned',
@@ -229,7 +226,8 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
             onGridReady={(event) => {
               const saved = getSavedColumnState()
               if (saved && saved.columnState) {
-                const filteredState = saved.columnState.filter((state: any) => state.colId !== 'id')
+                // No longer filtering by 'id' since it doesn't exist
+                const filteredState = saved.columnState
                 event.columnApi.applyColumnState({ state: filteredState })
               }
             }}

@@ -26,22 +26,27 @@
 
 ## How to Create Installer Package
 
-### Option 1: Quick Setup (Easiest)
+### Easiest Method (Recommended)
 
 ```powershell
 cd osquery-agent
-.\QUICK-SETUP.ps1
+.\CREATE-INSTALLER.ps1
 ```
 
-Enter your Supabase URL and anon key when prompted.
+Just enter your Supabase URL and anon key - everything is pre-configured!
 
-### Option 2: Manual
+**This creates a completely ready-to-use installer - teachers don't need to edit anything!**
+
+### Alternative Methods
 
 ```powershell
-cd osquery-agent
-.\create-installer-package.ps1 `
+# Method 1: Using create-installer-with-keys (pre-configured)
+.\create-installer-with-keys.ps1 `
     -SupabaseUrl "https://YOUR_PROJECT.supabase.co" `
     -SupabaseKey "YOUR_ANON_KEY_HERE"
+
+# Method 2: Old method (requires teachers to edit INSTALL.bat)
+.\QUICK-SETUP.ps1
 ```
 
 ## Before Testing

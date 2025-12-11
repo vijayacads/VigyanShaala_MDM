@@ -3,7 +3,6 @@ import { supabase } from '../../supabase.config'
 import './AddDevice.css'
 
 interface Device {
-  id: number
   hostname: string
   device_inventory_code?: string
   serial_number?: string
@@ -18,7 +17,7 @@ interface Device {
 export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => void }) {
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null)
+  const [selectedDeviceHostname, setSelectedDeviceHostname] = useState<string | null>(null)
   const [devices, setDevices] = useState<Device[]>([])
   const [deviceSearchQuery, setDeviceSearchQuery] = useState('')
   const [showDeviceDropdown, setShowDeviceDropdown] = useState(false)
@@ -43,7 +42,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     try {
       const { data, error } = await supabase
         .from('devices')
-        .select('id, hostname, device_inventory_code, serial_number, host_location, city_town_village, laptop_model, latitude, longitude, os_version')
+        .select('hostname, device_inventory_code, serial_number, host_location, city_town_village, laptop_model, latitude, longitude, os_version')
         .order('hostname', { ascending: true })
 
       if (error) throw error
@@ -67,7 +66,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
 
   function loadDeviceForEdit(device: Device) {
     setEditing(true)
-    setSelectedDeviceId(device.id)
+    setSelectedDeviceHostname(device.hostname)
     setDeviceSearchQuery(`${device.hostname}${device.device_inventory_code ? ` (${device.device_inventory_code})` : ''}`)
     setShowDeviceDropdown(false)
     setFormData({
@@ -85,7 +84,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
 
   function resetForm() {
     setEditing(false)
-    setSelectedDeviceId(null)
+    setSelectedDeviceHostname(null)
     setDeviceSearchQuery('')
     setFormData({
       hostname: '',
@@ -146,11 +145,11 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
         os_version: formData.os_version
       }
 
-      if (editing && selectedDeviceId) {
+      if (editing && selectedDeviceHostname) {
         const { error } = await supabase
           .from('devices')
           .update(deviceData)
-          .eq('id', selectedDeviceId)
+          .eq('hostname', selectedDeviceHostname)
 
         if (error) throw error
         alert('Device updated successfully!')
@@ -345,7 +344,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
               setShowDeviceDropdown(true)
               if (!e.target.value) {
                 setEditing(false)
-                setSelectedDeviceId(null)
+                setSelectedDeviceHostname(null)
               }
             }}
             onFocus={() => {
@@ -357,7 +356,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
             <div className="device-dropdown">
               {filteredDevices.map(device => (
                 <div
-                  key={device.id}
+                  key={device.hostname}
                   onClick={() => loadDeviceForEdit(device)}
                   className="device-dropdown-item"
                 >
@@ -386,3 +385,4 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     </div>
   )
 }
+

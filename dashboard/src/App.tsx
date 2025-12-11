@@ -10,7 +10,6 @@ import DeviceSearchFilter from './components/DeviceSearchFilter'
 import './App.css'
 
 interface Device {
-  id: number
   hostname: string
   device_inventory_code?: string
   location_name: string

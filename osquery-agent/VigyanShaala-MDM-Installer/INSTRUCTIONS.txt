@@ -1,0 +1,51 @@
+========================================
+VigyanShaala MDM - Device Installer
+========================================
+
+INSTALLATION INSTRUCTIONS:
+==========================
+
+1. Right-click on "INSTALL.bat" or "RUN-AS-ADMIN.bat"
+2. Select "Run as Administrator"
+3. Wait for installation to complete
+4. Fill in the enrollment form when it appears
+5. Done! Your device will appear in the dashboard.
+
+REQUIRED INFORMATION:
+- Device Inventory Code (e.g., INV-001, LAPTOP-01)
+- Host Location (e.g., Computer Lab, Classroom 101)
+- Latitude and Longitude (use Google Maps to find)
+- School Location (select from dropdown)
+
+HOW TO FIND LATITUDE/LONGITUDE:
+1. Open Google Maps in your browser
+2. Search for your school location
+3. Right-click on the location on the map
+4. The first number is Latitude, second is Longitude
+5. Copy these numbers into the form
+
+Example:
+- If you see: 18.5204, 73.8567
+- Latitude: 18.5204
+- Longitude: 73.8567
+
+AUTO-DETECTED INFORMATION:
+- Device Name/Hostname
+- Serial Number
+- OS Version
+- Laptop Model
+
+You can edit these if needed.
+
+TROUBLESHOOTING:
+- If installation fails, ensure you're running as Administrator
+- Check your internet connection
+- The installer will auto-download osquery if needed
+- Contact administrator if problems persist
+
+UNINSTALLATION:
+- To remove the agent, use "UNINSTALL.bat" (Run as Administrator)
+- See UNINSTALL.txt for detailed instructions
+
+========================================
+

@@ -20,7 +20,6 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon
 
 interface Device {
-  id: number
   hostname: string
   latitude: number
   longitude: number
@@ -69,7 +68,7 @@ export default function DeviceMap({ locationId }: DeviceMapProps) {
       // Fetch devices (including those without assigned locations)
       let query = supabase
         .from('devices')
-        .select('id, hostname, latitude, longitude, compliance_status, location_id')
+        .select('hostname, latitude, longitude, compliance_status, location_id')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
 
@@ -242,7 +241,7 @@ export default function DeviceMap({ locationId }: DeviceMapProps) {
           const isCompliant = device.compliance_status === 'compliant'
           return (
             <CircleMarker
-              key={device.id}
+              key={device.hostname}
               center={[device.latitude, device.longitude]}
               radius={8}
               pathOptions={{

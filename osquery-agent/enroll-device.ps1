@@ -58,17 +58,6 @@ function Get-Locations {
 # Function to show full device enrollment form
 function Show-DeviceEnrollmentForm {
     $deviceInfo = Get-DeviceInfo
-    $locations = Get-Locations
-    
-    if ($locations.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show(
-            "Failed to load locations. Please check your internet connection and try again.`n`nError: Could not connect to server.",
-            "Enrollment Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        exit 1
-    }
     
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
@@ -220,24 +209,8 @@ function Show-DeviceEnrollmentForm {
     $form.Controls.Add($txtLongitude)
     $yPos += $spacing
     
-    # Location Selection (School Location)
-    $label10 = New-Object System.Windows.Forms.Label
-    $label10.Location = New-Object System.Drawing.Point(20, $yPos)
-    $label10.Size = New-Object System.Drawing.Size(260, $labelHeight)
-    $label10.Text = "School Location *:"
-    $form.Controls.Add($label10)
-    
-    $comboLocation = New-Object System.Windows.Forms.ComboBox
-    $comboLocation.Location = New-Object System.Drawing.Point(280, $yPos)
-    $comboLocation.Size = New-Object System.Drawing.Size(280, $inputHeight)
-    $comboLocation.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-    foreach ($location in $locations) {
-        $displayText = "$($location.name)"
-        $comboLocation.Items.Add($displayText) | Out-Null
-    }
-    $comboLocation.Tag = $locations
-    $form.Controls.Add($comboLocation)
-    $yPos += 50
+    # Note: Location selection removed - matching AddDevice component which doesn't use location_id
+    $yPos += 20
     
     # Buttons
     $btnRegister = New-Object System.Windows.Forms.Button
@@ -281,11 +254,6 @@ function Show-DeviceEnrollmentForm {
             [System.Windows.Forms.MessageBox]::Show("Longitude is required.", "Validation Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
             return
         }
-        if ($comboLocation.SelectedIndex -lt 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a school location.", "Validation Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-        
         # Validate coordinates
         $lat = 0
         $lon = 0
@@ -298,10 +266,7 @@ function Show-DeviceEnrollmentForm {
             return
         }
         
-        # Get selected location
-        $selectedLocation = $locations[$comboLocation.SelectedIndex]
-        
-        # Prepare form data
+        # Prepare form data - matching AddDevice component exactly (no location_id, no device ID)
         $formData = @{
             device_inventory_code = $txtInventoryCode.Text.Trim()
             hostname = $txtHostname.Text.Trim()
@@ -312,7 +277,6 @@ function Show-DeviceEnrollmentForm {
             os_version = if ([string]::IsNullOrWhiteSpace($txtOSVersion.Text)) { $null } else { $txtOSVersion.Text.Trim() }
             latitude = [double]$txtLatitude.Text
             longitude = [double]$txtLongitude.Text
-            location_id = $selectedLocation.id
         }
         
         $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
@@ -340,20 +304,29 @@ function Register-DeviceInSupabase {
             "Prefer" = "return=representation"
         }
         
+        # Build body exactly matching AddDevice component - NO location_id, NO device ID
         $body = @{
             hostname = $deviceData.hostname
-            device_inventory_code = $deviceData.device_inventory_code
-            serial_number = $deviceData.serial_number
-            host_location = $deviceData.host_location
-            city_town_village = $deviceData.city_town_village
-            laptop_model = $deviceData.laptop_model
-            os_version = $deviceData.os_version
-            latitude = $deviceData.latitude
-            longitude = $deviceData.longitude
-            location_id = $deviceData.location_id
+            device_inventory_code = if ([string]::IsNullOrWhiteSpace($deviceData.device_inventory_code)) { $null } else { $deviceData.device_inventory_code }
+            serial_number = if ([string]::IsNullOrWhiteSpace($deviceData.serial_number)) { $null } else { $deviceData.serial_number }
+            host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }
+            city_town_village = if ([string]::IsNullOrWhiteSpace($deviceData.city_town_village)) { $null } else { $deviceData.city_town_village }
+            laptop_model = if ([string]::IsNullOrWhiteSpace($deviceData.laptop_model)) { $null } else { $deviceData.laptop_model }
+            latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }
+            longitude = if ($deviceData.longitude) { [double]$deviceData.longitude } else { $null }
+            os_version = if ([string]::IsNullOrWhiteSpace($deviceData.os_version)) { $null } else { $deviceData.os_version }
             compliance_status = "unknown"
             last_seen = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         } | ConvertTo-Json -Depth 10
+        
+        Write-Host "Registering device in Supabase..." -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Device Data:" -ForegroundColor Yellow
+        Write-Host "  Hostname: $($deviceData.hostname)" -ForegroundColor White
+        Write-Host "  Inventory Code: $($deviceData.device_inventory_code)" -ForegroundColor White
+        Write-Host "  Host Location: $($deviceData.host_location)" -ForegroundColor White
+        Write-Host ""
+        Write-Host "Preparing device registration request..." -ForegroundColor Cyan
         
         $response = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices" `
             -Method POST -Headers $headers -Body $body
@@ -362,9 +335,24 @@ function Register-DeviceInSupabase {
     }
     catch {
         $errorDetails = $_.Exception.Message
-        if ($_.ErrorDetails.Message) {
-            $errorDetails = $_.ErrorDetails.Message
+        $statusCode = $null
+        
+        if ($_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode.value__
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $reader.BaseStream.Position = 0
+            $reader.DiscardBufferedData()
+            $responseBody = $reader.ReadToEnd()
+            
+            Write-Host "HTTP Status Code: $statusCode" -ForegroundColor Red
+            Write-Host "Response Body: $responseBody" -ForegroundColor Red
+            Write-Host ""
+            
+            if ($responseBody) {
+                $errorDetails = $responseBody
+            }
         }
+        
         Write-Error "Failed to register device: $errorDetails"
         return $null
     }
@@ -399,7 +387,6 @@ $device = Register-DeviceInSupabase -deviceData $formData
 
 if ($device) {
     $successMessage = "Device enrolled successfully!`n`n" +
-                      "Device ID: $($device.id)`n" +
                       "Device Name: $($device.hostname)`n" +
                       "Inventory Code: $($device.device_inventory_code)`n`n" +
                       "The device will now appear in the dashboard."
@@ -412,8 +399,8 @@ if ($device) {
     )
     
     Write-Host "Device registered successfully!" -ForegroundColor Green
-    Write-Host "Device ID: $($device.id)" -ForegroundColor Green
     Write-Host "Device Name: $($device.hostname)" -ForegroundColor Green
+    Write-Host "Inventory Code: $($device.device_inventory_code)" -ForegroundColor Green
     exit 0
 }
 else {
