@@ -193,6 +193,29 @@ if ($SupabaseUrl -and $SupabaseKey) {
     } catch {
         Write-Warning "Could not create software blocklist sync task: $_"
     }
+    
+    # ============================================
+    # Data Sending Task (NEW - sends osquery data to Supabase)
+    # ============================================
+    Write-Host "`nCreating scheduled task to send osquery data..." -ForegroundColor Cyan
+    $sendDataScript = "$InstallDir\send-osquery-data.ps1"
+    if (Test-Path "send-osquery-data.ps1") {
+        Copy-Item "send-osquery-data.ps1" $sendDataScript -Force
+    }
+    
+    $dataTaskName = "VigyanShaala-MDM-SendOsqueryData"
+    $dataTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-ExecutionPolicy Bypass -File `"$sendDataScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+    $dataTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 365)
+    $dataTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    
+    try {
+        Unregister-ScheduledTask -TaskName $dataTaskName -ErrorAction SilentlyContinue
+        Register-ScheduledTask -TaskName $dataTaskName -Action $dataTaskAction -Trigger $dataTaskTrigger -Principal $dataTaskPrincipal -Description "Send osquery data to MDM server every 5 minutes" -Force | Out-Null
+        Write-Host "Data sending task created (runs every 5 minutes)" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create data sending task: $_"
+    }
 }
 
 Write-Host "`nInstallation complete!" -ForegroundColor Green
@@ -200,4 +223,3 @@ Write-Host "`nInstalled components:" -ForegroundColor Cyan
 Write-Host "- osquery agent: $InstallDir" -ForegroundColor White
 Write-Host "- Service: $serviceName" -ForegroundColor White
 Write-Host "- Configuration: $configDir" -ForegroundColor White
-

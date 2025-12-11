@@ -30,7 +30,11 @@ Write-Host "Copying files..." -ForegroundColor Yellow
 $filesToCopy = @(
     "install-osquery.ps1",
     "enroll-device.ps1",
-    "osquery.conf"
+    "osquery.conf",
+    "apply-website-blocklist.ps1",
+    "apply-software-blocklist.ps1",
+    "sync-blocklist-scheduled.ps1",
+    "sync-software-blocklist-scheduled.ps1"
 )
 
 foreach ($file in $filesToCopy) {
