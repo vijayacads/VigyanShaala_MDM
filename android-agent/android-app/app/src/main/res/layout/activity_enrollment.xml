@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Supabase Configuration"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etSupabaseUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Supabase URL"
+            android:inputType="textUri"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etSupabaseKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Supabase API Key"
+            android:inputType="textPassword"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Device Information"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"
+            android:layout_marginTop="8dp" />
+
+        <EditText
+            android:id="@+id/etHostname"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Device Hostname *"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etInventoryCode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Inventory Code *"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etHostLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Host Location *"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etCity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="City/Town/Village"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etLatitude"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Latitude"
+            android:inputType="numberDecimal"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etLongitude"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Longitude"
+            android:inputType="numberDecimal"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etAssignedTeacher"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Assigned Teacher"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etAssignedStudentLeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Assigned Student Leader"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnRegister"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Register Device"
+            android:textSize="16sp" />
+
+    </LinearLayout>
+
+</ScrollView>
+

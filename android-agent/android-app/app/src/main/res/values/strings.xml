@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VigyanShaala MDM</string>
+    <string name="device_enrollment">Device Enrollment</string>
+    <string name="enroll_device">Enroll Device</string>
+    <string name="device_hostname">Device Hostname</string>
+    <string name="inventory_code">Inventory Code</string>
+    <string name="location">Host Location</string>
+    <string name="city">City/Town/Village</string>
+    <string name="latitude">Latitude</string>
+    <string name="longitude">Longitude</string>
+    <string name="assigned_teacher">Assigned Teacher</string>
+    <string name="assigned_student_leader">Assigned Student Leader</string>
+    <string name="register">Register Device</string>
+    <string name="enrollment_success">Device enrolled successfully!</string>
+    <string name="enrollment_error">Enrollment failed. Please try again.</string>
+</resources>
+
