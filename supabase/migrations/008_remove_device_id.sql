@@ -1,7 +1,18 @@
 -- Remove device ID column completely
 -- Use hostname as primary key instead
 
--- Step 1: Update child tables to use TEXT for device_id (will store hostname)
+-- Step 1: Drop RLS policies that depend on device_id before modifying columns
+
+-- Drop geofence_alerts policy
+DROP POLICY IF EXISTS "Users see alerts for accessible devices" ON geofence_alerts;
+
+-- Drop software_inventory policy  
+DROP POLICY IF EXISTS "Users see software for accessible devices" ON software_inventory;
+
+-- Drop web_activity policy
+DROP POLICY IF EXISTS "Users see web activity for accessible devices" ON web_activity;
+
+-- Step 2: Update child tables to use TEXT for device_id (will store hostname)
 -- First, add temporary column for hostname in each child table
 
 -- Geofence alerts
@@ -19,8 +30,8 @@ BEGIN
         WHERE ga.device_id::text = d.id::text;
         
         -- Drop old column and constraint
-        ALTER TABLE geofence_alerts DROP CONSTRAINT IF EXISTS geofence_alerts_device_id_fkey;
-        ALTER TABLE geofence_alerts DROP COLUMN IF EXISTS device_id;
+        ALTER TABLE geofence_alerts DROP CONSTRAINT IF EXISTS geofence_alerts_device_id_fkey CASCADE;
+        ALTER TABLE geofence_alerts DROP COLUMN IF EXISTS device_id CASCADE;
         
         -- Rename to device_id (but now it's TEXT and holds hostname)
         ALTER TABLE geofence_alerts RENAME COLUMN device_hostname TO device_id;
@@ -42,8 +53,8 @@ BEGIN
         FROM devices d
         WHERE si.device_id::text = d.id::text;
         
-        ALTER TABLE software_inventory DROP CONSTRAINT IF EXISTS software_inventory_device_id_fkey;
-        ALTER TABLE software_inventory DROP COLUMN IF EXISTS device_id;
+        ALTER TABLE software_inventory DROP CONSTRAINT IF EXISTS software_inventory_device_id_fkey CASCADE;
+        ALTER TABLE software_inventory DROP COLUMN IF EXISTS device_id CASCADE;
         ALTER TABLE software_inventory RENAME COLUMN device_hostname TO device_id;
         ALTER TABLE software_inventory ALTER COLUMN device_id TYPE TEXT;
     END IF;
@@ -61,8 +72,8 @@ BEGIN
         FROM devices d
         WHERE wa.device_id::text = d.id::text;
         
-        ALTER TABLE web_activity DROP CONSTRAINT IF EXISTS web_activity_device_id_fkey;
-        ALTER TABLE web_activity DROP COLUMN IF EXISTS device_id;
+        ALTER TABLE web_activity DROP CONSTRAINT IF EXISTS web_activity_device_id_fkey CASCADE;
+        ALTER TABLE web_activity DROP COLUMN IF EXISTS device_id CASCADE;
         ALTER TABLE web_activity RENAME COLUMN device_hostname TO device_id;
         ALTER TABLE web_activity ALTER COLUMN device_id TYPE TEXT;
     END IF;
@@ -116,5 +127,67 @@ CREATE INDEX IF NOT EXISTS idx_software_inventory_device ON software_inventory(d
 DROP INDEX IF EXISTS idx_web_activity_device;
 CREATE INDEX IF NOT EXISTS idx_web_activity_device ON web_activity(device_id);
 
--- Step 7: Remove the old id column from devices (if it still exists)
+-- Step 7: Recreate RLS policies with updated device_id (now TEXT/hostname)
+
+-- Geofence alerts policy (updated to use device_id as TEXT/hostname)
+CREATE POLICY "Users see alerts for accessible devices"
+    ON geofence_alerts FOR SELECT
+    TO authenticated
+    USING (
+        device_id IN (
+            SELECT hostname FROM devices
+            WHERE assigned_teacher_id = auth.uid()
+            OR location_id IN (
+                SELECT location_id FROM devices WHERE assigned_teacher_id = auth.uid()
+            )
+        )
+        OR
+        EXISTS (
+            SELECT 1 FROM auth.users
+            WHERE auth.users.id = auth.uid()
+            AND auth.users.raw_user_meta_data->>'role' IN ('admin', 'location_admin')
+        )
+    );
+
+-- Software inventory policy (updated to use device_id as TEXT/hostname)
+CREATE POLICY "Users see software for accessible devices"
+    ON software_inventory FOR SELECT
+    TO authenticated
+    USING (
+        device_id IN (
+            SELECT hostname FROM devices
+            WHERE assigned_teacher_id = auth.uid()
+            OR location_id IN (
+                SELECT location_id FROM devices WHERE assigned_teacher_id = auth.uid()
+            )
+        )
+        OR
+        EXISTS (
+            SELECT 1 FROM auth.users
+            WHERE auth.users.id = auth.uid()
+            AND auth.users.raw_user_meta_data->>'role' IN ('admin', 'location_admin')
+        )
+    );
+
+-- Web activity policy (updated to use device_id as TEXT/hostname)
+CREATE POLICY "Users see web activity for accessible devices"
+    ON web_activity FOR SELECT
+    TO authenticated
+    USING (
+        device_id IN (
+            SELECT hostname FROM devices
+            WHERE assigned_teacher_id = auth.uid()
+            OR location_id IN (
+                SELECT location_id FROM devices WHERE assigned_teacher_id = auth.uid()
+            )
+        )
+        OR
+        EXISTS (
+            SELECT 1 FROM auth.users
+            WHERE auth.users.id = auth.uid()
+            AND auth.users.raw_user_meta_data->>'role' IN ('admin', 'location_admin')
+        )
+    );
+
+-- Step 8: Remove the old id column from devices (if it still exists)
 ALTER TABLE devices DROP COLUMN IF EXISTS id CASCADE;
