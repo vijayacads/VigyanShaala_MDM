@@ -118,40 +118,80 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "Run enroll-device.ps1 manually after setting environment variables" -ForegroundColor Yellow
 }
 
-# Step 8: Apply initial website blocklist and create sync task
+# Step 8: Apply initial blocklists and create sync tasks
 if ($SupabaseUrl -and $SupabaseKey) {
-    Write-Host "`nApplying website blocklist..." -ForegroundColor Cyan
-    $blocklistScript = "$InstallDir\apply-website-blocklist.ps1"
+    Write-Host "`nApplying blocklists..." -ForegroundColor Cyan
+    
+    # ============================================
+    # Website Blocklist
+    # ============================================
+    Write-Host "Applying website blocklist..." -ForegroundColor Cyan
+    $websiteBlocklistScript = "$InstallDir\apply-website-blocklist.ps1"
     if (Test-Path "apply-website-blocklist.ps1") {
-        Copy-Item "apply-website-blocklist.ps1" $blocklistScript -Force
+        Copy-Item "apply-website-blocklist.ps1" $websiteBlocklistScript -Force
         try {
-            & $blocklistScript -SupabaseUrl $SupabaseUrl -SupabaseAnonKey $SupabaseKey
-            Write-Host "Initial blocklist applied" -ForegroundColor Green
+            & $websiteBlocklistScript -SupabaseUrl $SupabaseUrl -SupabaseAnonKey $SupabaseKey
+            Write-Host "Website blocklist applied" -ForegroundColor Green
         } catch {
-            Write-Warning "Could not apply initial blocklist: $_"
+            Write-Warning "Could not apply website blocklist: $_"
         }
     }
     
-    # Create scheduled task to sync blocklist every 30 minutes
-    Write-Host "Creating scheduled task to sync blocklist..." -ForegroundColor Cyan
-    $syncScript = "$InstallDir\sync-blocklist-scheduled.ps1"
+    # Create scheduled task to sync website blocklist every 30 minutes
+    Write-Host "Creating scheduled task for website blocklist sync..." -ForegroundColor Cyan
+    $websiteSyncScript = "$InstallDir\sync-blocklist-scheduled.ps1"
     if (Test-Path "sync-blocklist-scheduled.ps1") {
-        Copy-Item "sync-blocklist-scheduled.ps1" $syncScript -Force
+        Copy-Item "sync-blocklist-scheduled.ps1" $websiteSyncScript -Force
     }
     
-    $taskName = "VigyanShaala-MDM-SyncBlocklist"
-    $taskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
-        -Argument "-ExecutionPolicy Bypass -File `"$syncScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
-    $taskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30) -RepetitionDuration (New-TimeSpan -Days 365)
-    $taskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $websiteTaskName = "VigyanShaala-MDM-SyncWebsiteBlocklist"
+    $websiteTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-ExecutionPolicy Bypass -File `"$websiteSyncScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+    $websiteTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30) -RepetitionDuration (New-TimeSpan -Days 365)
+    $websiteTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
     
     try {
-        Unregister-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Description "Sync website blocklist from MDM server" -Force | Out-Null
-        Write-Host "Scheduled task created successfully" -ForegroundColor Green
-        Write-Host "Blocklist will sync every 30 minutes" -ForegroundColor Gray
+        Unregister-ScheduledTask -TaskName $websiteTaskName -ErrorAction SilentlyContinue
+        Register-ScheduledTask -TaskName $websiteTaskName -Action $websiteTaskAction -Trigger $websiteTaskTrigger -Principal $websiteTaskPrincipal -Description "Sync website blocklist from MDM server" -Force | Out-Null
+        Write-Host "Website blocklist sync task created (runs every 30 minutes)" -ForegroundColor Green
     } catch {
-        Write-Warning "Could not create scheduled task: $_"
+        Write-Warning "Could not create website blocklist sync task: $_"
+    }
+    
+    # ============================================
+    # Software Blocklist
+    # ============================================
+    Write-Host "`nApplying software blocklist..." -ForegroundColor Cyan
+    $softwareBlocklistScript = "$InstallDir\apply-software-blocklist.ps1"
+    if (Test-Path "apply-software-blocklist.ps1") {
+        Copy-Item "apply-software-blocklist.ps1" $softwareBlocklistScript -Force
+        try {
+            & $softwareBlocklistScript -SupabaseUrl $SupabaseUrl -SupabaseAnonKey $SupabaseKey
+            Write-Host "Software blocklist checked and applied" -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not apply software blocklist: $_"
+        }
+    }
+    
+    # Create scheduled task to sync software blocklist every hour
+    Write-Host "Creating scheduled task for software blocklist sync..." -ForegroundColor Cyan
+    $softwareSyncScript = "$InstallDir\sync-software-blocklist-scheduled.ps1"
+    if (Test-Path "sync-software-blocklist-scheduled.ps1") {
+        Copy-Item "sync-software-blocklist-scheduled.ps1" $softwareSyncScript -Force
+    }
+    
+    $softwareTaskName = "VigyanShaala-MDM-SyncSoftwareBlocklist"
+    $softwareTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-ExecutionPolicy Bypass -File `"$softwareSyncScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+    $softwareTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 365)
+    $softwareTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    
+    try {
+        Unregister-ScheduledTask -TaskName $softwareTaskName -ErrorAction SilentlyContinue
+        Register-ScheduledTask -TaskName $softwareTaskName -Action $softwareTaskAction -Trigger $softwareTaskTrigger -Principal $softwareTaskPrincipal -Description "Check and remove blocked software from MDM server" -Force | Out-Null
+        Write-Host "Software blocklist sync task created (runs every hour)" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create software blocklist sync task: $_"
     }
 }
 
