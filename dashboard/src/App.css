@@ -23,7 +23,7 @@ body {
 .app-header {
   background: var(--vs-gradient-primary);
   color: white;
-  padding: 1.25rem 2rem;
+  padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -32,11 +32,25 @@ body {
   border-bottom: 3px solid var(--vs-primary-yellow);
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-logo {
+  height: 50px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
 .app-header h1 {
   font-family: var(--vs-font-primary);
   font-size: 1.75rem;
   font-weight: 400;
   letter-spacing: 0.5px;
+  margin: 0;
 }
 
 .user-info {

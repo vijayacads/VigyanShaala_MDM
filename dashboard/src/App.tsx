@@ -43,7 +43,10 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>VigyanShaala MDM Dashboard</h1>
+        <div className="header-left">
+          <img src="/logo.png" alt="VigyanShaala Logo" className="header-logo" />
+          <h1>VigyanShaala MDM Dashboard</h1>
+        </div>
         <div className="user-info">
           <span>Admin Mode</span>
         </div>
