@@ -46,8 +46,13 @@ serve(async (req) => {
       )
     }
 
+    // Update last_seen immediately when ANY data is received (heartbeat)
+    const currentTime = new Date().toISOString()
+    let hasData = false
+
     // Process geolocation data
     if (payload.geolocation && payload.geolocation.length > 0) {
+      hasData = true
       const geo = payload.geolocation[0]
       if (geo.latitude && geo.longitude) {
         // Update device location
@@ -56,7 +61,7 @@ serve(async (req) => {
           .update({
             latitude: geo.latitude,
             longitude: geo.longitude,
-            last_seen: new Date().toISOString()
+            last_seen: currentTime
           })
           .eq('hostname', device.hostname)
 
@@ -75,11 +80,18 @@ serve(async (req) => {
             })
           })
         }
+      } else {
+        // GPS data received but no coordinates - still update last_seen
+        await supabaseClient
+          .from('devices')
+          .update({ last_seen: currentTime })
+          .eq('hostname', device.hostname)
       }
     }
 
     // Process installed programs
     if (payload.installed_programs && Array.isArray(payload.installed_programs)) {
+      hasData = true
       // Get active software blocklist
       const { data: blocklist } = await supabaseClient
         .from('software_blocklist')
@@ -125,13 +137,23 @@ serve(async (req) => {
       if (hasBlockedSoftware) {
         await supabaseClient
           .from('devices')
-          .update({ compliance_status: 'non_compliant' })
+          .update({ 
+            compliance_status: 'non_compliant',
+            last_seen: currentTime
+          })
+          .eq('hostname', device.hostname)
+      } else {
+        // Update last_seen even if no blocked software
+        await supabaseClient
+          .from('devices')
+          .update({ last_seen: currentTime })
           .eq('hostname', device.hostname)
       }
     }
 
     // Process browser history
     if (payload.browser_history && Array.isArray(payload.browser_history)) {
+      hasData = true
       for (const history of payload.browser_history) {
         if (history.url) {
           const url = new URL(history.url)
@@ -146,10 +168,32 @@ serve(async (req) => {
             })
         }
       }
+      // Update last_seen when browser history is received
+      await supabaseClient
+        .from('devices')
+        .update({ last_seen: currentTime })
+        .eq('hostname', device.hostname)
+    }
+
+    // Process system info (heartbeat - updates last_seen even if no other data)
+    if (payload.system_info && Array.isArray(payload.system_info) && payload.system_info.length > 0) {
+      hasData = true
+      await supabaseClient
+        .from('devices')
+        .update({ last_seen: currentTime })
+        .eq('hostname', device.hostname)
+    }
+
+    // If ANY data was received, ensure last_seen is updated (final safety check)
+    if (hasData) {
+      await supabaseClient
+        .from('devices')
+        .update({ last_seen: currentTime })
+        .eq('hostname', device.hostname)
     }
 
     return new Response(
-      JSON.stringify({ success: true, device_hostname: device.hostname }),
+      JSON.stringify({ success: true, device_hostname: device.hostname, last_seen: currentTime }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
@@ -169,4 +213,3 @@ function categorizeDomain(domain: string): string {
   if (gaming.some(g => domain.includes(g))) return 'gaming'
   return 'other'
 }
-
