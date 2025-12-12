@@ -62,13 +62,14 @@
 }
 
 .alerts-table th {
-  background: linear-gradient(135deg, var(--vs-primary-blue) 0%, var(--vs-primary-red) 100%);
+  background: var(--vs-gradient-primary);
   color: white;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--vs-font-secondary);
   text-transform: uppercase;
   font-size: 0.85rem;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  border-bottom: 2px solid var(--vs-primary-yellow);
 }
 
 .alert-row.unresolved {
@@ -81,16 +82,22 @@
 }
 
 .resolve-btn {
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--vs-primary-blue) 0%, var(--vs-primary-red) 100%);
+  padding: 0.5rem 1.25rem;
+  background: var(--vs-gradient-primary);
   color: white;
-  border: none;
-  border-radius: 6px;
+  border: 2px solid var(--vs-primary-yellow);
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--vs-font-secondary);
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(44, 72, 105, 0.3);
+  transition: all 0.3s;
+  box-shadow: 0 4px 8px rgba(44, 72, 105, 0.3);
+}
+
+.resolve-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(44, 72, 105, 0.4);
+  border-color: var(--vs-primary-yellow);
 }
 
 .resolve-btn:hover {

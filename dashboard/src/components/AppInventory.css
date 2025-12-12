@@ -16,12 +16,14 @@
 }
 
 .device-count {
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--vs-primary-blue) 0%, var(--vs-primary-red) 100%);
+  padding: 0.5rem 1.25rem;
+  background: var(--vs-gradient-primary);
   color: white;
   border-radius: 20px;
   font-weight: 600;
   font-size: 0.9rem;
   font-family: var(--vs-font-secondary);
+  box-shadow: 0 2px 8px rgba(44, 72, 105, 0.3);
+  border: 2px solid var(--vs-primary-yellow);
 }
 

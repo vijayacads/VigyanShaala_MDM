@@ -246,7 +246,7 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
           marginTop: '2rem', 
           marginBottom: '2rem',
           padding: '20px', 
-          border: '2px solid rgb(44, 72, 105)', 
+          border: '3px solid #69ab4a', 
           borderRadius: '12px',
           background: 'white',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'

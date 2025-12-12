@@ -6,8 +6,12 @@
 
 .device-downloads-container h2 {
   font-family: var(--vs-font-primary);
-  color: var(--vs-primary-blue);
+  background: var(--vs-gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin-bottom: 0.5rem;
+  font-size: 2rem;
 }
 
 .downloads-description {
@@ -25,17 +29,30 @@
 
 .download-card {
   background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  border: 3px solid var(--vs-secondary-cyan);
+  border-radius: 16px;
   padding: 2rem;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(44, 72, 105, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.download-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--vs-gradient-primary);
 }
 
 .download-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-6px);
+  box-shadow: 0 8px 24px rgba(44, 72, 105, 0.2);
+  border-color: var(--vs-primary-green);
 }
 
 .platform-icon {
@@ -48,7 +65,9 @@
   color: var(--vs-primary-blue);
   margin-bottom: 1rem;
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .platform-description {
@@ -70,25 +89,34 @@
 }
 
 .windows-btn {
-  background: var(--vs-primary-blue);
+  background: var(--vs-gradient-primary);
   color: white;
   font-family: var(--vs-font-secondary);
+  border: 2px solid var(--vs-primary-yellow);
+  box-shadow: 0 4px 12px rgba(44, 72, 105, 0.3);
 }
 
 .windows-btn:hover {
-  background: rgb(35, 58, 84);
-  transform: scale(1.02);
+  background: linear-gradient(135deg, #1e2a3a 0%, #4a7c5a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(44, 72, 105, 0.4);
+  border-color: var(--vs-primary-yellow);
 }
 
 .android-btn {
-  background: var(--vs-secondary-green);
+  background: var(--vs-gradient-warm);
   color: var(--vs-dark);
   font-family: var(--vs-font-secondary);
+  border: 2px solid var(--vs-primary-green);
+  box-shadow: 0 4px 12px rgba(255, 204, 41, 0.3);
+  font-weight: 700;
 }
 
 .android-btn:hover {
-  background: rgb(130, 180, 150);
-  transform: scale(1.02);
+  background: linear-gradient(135deg, #ffd700 0%, #ff9933 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 204, 41, 0.4);
+  border-color: var(--vs-primary-green);
 }
 
 .download-info {
@@ -152,10 +180,12 @@
 }
 
 .features-info {
-  background: rgba(44, 72, 105, 0.05);
+  background: linear-gradient(135deg, rgba(145, 216, 247, 0.1) 0%, rgba(157, 211, 175, 0.1) 100%);
   padding: 1.5rem;
-  border-radius: 12px;
-  border-left: 4px solid var(--vs-primary-blue);
+  border-radius: 16px;
+  border-left: 5px solid var(--vs-primary-green);
+  border-top: 2px solid var(--vs-secondary-cyan);
+  box-shadow: 0 2px 8px rgba(44, 72, 105, 0.1);
 }
 
 .features-info h3 {

@@ -27,16 +27,18 @@
 
 .location-select:focus {
   outline: none;
-  border-color: var(--vs-primary-blue);
-  box-shadow: 0 0 0 3px rgba(44, 72, 105, 0.1);
+  border-color: var(--vs-primary-green);
+  box-shadow: 0 0 0 3px rgba(105, 171, 74, 0.15), 0 0 0 1px var(--vs-primary-yellow);
 }
 
 .location-info {
   margin-top: 1rem;
-  padding: 1rem;
-  background: var(--vs-light-bg);
-  border-radius: 8px;
-  border-left: 4px solid var(--vs-primary-blue);
+  padding: 1.25rem;
+  background: linear-gradient(135deg, rgba(145, 216, 247, 0.1) 0%, rgba(157, 211, 175, 0.1) 100%);
+  border-radius: 12px;
+  border-left: 5px solid var(--vs-primary-green);
+  border-top: 2px solid var(--vs-secondary-cyan);
+  box-shadow: 0 2px 8px rgba(44, 72, 105, 0.1);
 }
 
 .location-details {

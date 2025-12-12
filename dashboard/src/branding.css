@@ -3,26 +3,36 @@
 /* VigyanShaala Branding Colors and Fonts */
 
 :root {
-  /* Primary Colors - Based on Identity Kit */
-  --vs-primary-red: rgb(255, 44, 41);        /* R-255, G-44, B-41 */
-  --vs-primary-blue: rgb(44, 72, 105);       /* R-44, G-72, B-105 */
-  --vs-primary-orange: rgb(245, 134, 52);    /* R-245, G-134, B-52 */
+  /* Primary Colors - Official VigyanShaala Brand Colors */
+  --vs-primary-blue: #2c4869;      /* Dark Blue - Main brand color */
+  --vs-primary-green: #69ab4a;     /* Green - Nature/Science */
+  --vs-primary-yellow: #ffcc29;   /* Yellow/Gold - Energy/Innovation */
   
   /* Secondary Colors */
-  --vs-secondary-cyan: rgb(145, 216, 247);   /* R-145, G-216, B-247 */
-  --vs-secondary-green: rgb(157, 211, 175);  /* R-157, G-211, B-175 */
-  --vs-secondary-orange: rgb(245, 134, 52);  /* R-245, G-134, B-52 */
+  --vs-secondary-cyan: #91d8f7;   /* Light Cyan - Sky/Discovery */
+  --vs-secondary-green: #9dd3af;   /* Light Green - Growth/Life */
+  --vs-secondary-orange: #f58634;  /* Orange - Warmth/Community */
   
-  /* Accent Colors */
-  --vs-accent-red: rgb(255, 105, 41);       /* R-255, G-105, B-41 */
-  --vs-accent-blue: rgb(44, 171, 74);       /* R-44, G-171, B-74 */
+  /* Semantic Colors */
+  --vs-success: var(--vs-primary-green);
+  --vs-warning: var(--vs-primary-yellow);
+  --vs-info: var(--vs-secondary-cyan);
+  --vs-error: #e74c3c;
   
   /* Neutral Colors */
-  --vs-dark: rgb(30, 30, 30);
-  --vs-light-bg: rgb(248, 250, 252);
-  --vs-white: rgb(255, 255, 255);
-  --vs-gray: rgb(100, 116, 139);
-  --vs-gray-light: rgb(241, 245, 249);
+  --vs-dark: #1a1a1a;
+  --vs-dark-blue: #1e2a3a;
+  --vs-light-bg: #f8fafc;
+  --vs-white: #ffffff;
+  --vs-gray: #64748b;
+  --vs-gray-light: #f1f5f9;
+  --vs-gray-border: #e2e8f0;
+  
+  /* Gradient Combinations */
+  --vs-gradient-primary: linear-gradient(135deg, var(--vs-primary-blue) 0%, var(--vs-primary-green) 100%);
+  --vs-gradient-warm: linear-gradient(135deg, var(--vs-primary-yellow) 0%, var(--vs-secondary-orange) 100%);
+  --vs-gradient-cool: linear-gradient(135deg, var(--vs-secondary-cyan) 0%, var(--vs-secondary-green) 100%);
+  --vs-gradient-hero: linear-gradient(135deg, var(--vs-primary-blue) 0%, var(--vs-primary-green) 50%, var(--vs-primary-yellow) 100%);
   
   /* Fonts */
   --vs-font-primary: 'Berkshire Swash', 'Georgia', serif;

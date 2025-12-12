@@ -40,8 +40,8 @@
 .filter-input:focus,
 .filter-select:focus {
   outline: none;
-  border-color: var(--vs-primary-blue);
-  box-shadow: 0 0 0 3px rgba(44, 72, 105, 0.1);
+  border-color: var(--vs-primary-green);
+  box-shadow: 0 0 0 3px rgba(105, 171, 74, 0.15), 0 0 0 1px var(--vs-primary-yellow);
 }
 
 .clear-filters-btn {
