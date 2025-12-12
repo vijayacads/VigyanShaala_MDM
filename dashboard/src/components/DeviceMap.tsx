@@ -223,8 +223,8 @@ export default function DeviceMap({ locationId }: DeviceMapProps) {
               center={[location.latitude, location.longitude]}
               radius={location.radius_meters}
               pathOptions={{
-                color: '#3b82f6',
-                fillColor: '#3b82f6',
+                color: 'rgb(44, 72, 105)',
+                fillColor: 'rgb(44, 72, 105)',
                 fillOpacity: 0.1,
                 weight: 2
               }}

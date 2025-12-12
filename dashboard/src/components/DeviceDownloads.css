@@ -5,7 +5,8 @@
 }
 
 .device-downloads-container h2 {
-  color: #1e40af;
+  font-family: var(--vs-font-primary);
+  color: var(--vs-primary-blue);
   margin-bottom: 0.5rem;
 }
 
@@ -43,9 +44,11 @@
 }
 
 .download-card h3 {
-  color: #1e40af;
+  font-family: var(--vs-font-secondary);
+  color: var(--vs-primary-blue);
   margin-bottom: 1rem;
   font-size: 1.5rem;
+  font-weight: 600;
 }
 
 .platform-description {
@@ -67,22 +70,24 @@
 }
 
 .windows-btn {
-  background: #0078d4;
+  background: var(--vs-primary-blue);
   color: white;
+  font-family: var(--vs-font-secondary);
 }
 
 .windows-btn:hover {
-  background: #0063b1;
+  background: rgb(35, 58, 84);
   transform: scale(1.02);
 }
 
 .android-btn {
-  background: #3ddc84;
-  color: #1a1a1a;
+  background: var(--vs-secondary-green);
+  color: var(--vs-dark);
+  font-family: var(--vs-font-secondary);
 }
 
 .android-btn:hover {
-  background: #34c274;
+  background: rgb(130, 180, 150);
   transform: scale(1.02);
 }
 
@@ -108,7 +113,8 @@
 }
 
 .installation-instructions h3 {
-  color: #1e40af;
+  font-family: var(--vs-font-primary);
+  color: var(--vs-primary-blue);
   margin-bottom: 1.5rem;
 }
 
@@ -125,8 +131,10 @@
 }
 
 .instruction-section h4 {
-  color: #1e40af;
+  font-family: var(--vs-font-secondary);
+  color: var(--vs-primary-blue);
   margin-bottom: 1rem;
+  font-weight: 600;
 }
 
 .instruction-section ol {
@@ -144,14 +152,15 @@
 }
 
 .features-info {
-  background: #eff6ff;
+  background: rgba(44, 72, 105, 0.05);
   padding: 1.5rem;
   border-radius: 12px;
-  border-left: 4px solid #3b82f6;
+  border-left: 4px solid var(--vs-primary-blue);
 }
 
 .features-info h3 {
-  color: #1e40af;
+  font-family: var(--vs-font-primary);
+  color: var(--vs-primary-blue);
   margin-bottom: 1rem;
 }
 

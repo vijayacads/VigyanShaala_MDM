@@ -27,16 +27,16 @@
 
 .location-select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--vs-primary-blue);
+  box-shadow: 0 0 0 3px rgba(44, 72, 105, 0.1);
 }
 
 .location-info {
   margin-top: 1rem;
   padding: 1rem;
-  background: #f8fafc;
+  background: var(--vs-light-bg);
   border-radius: 8px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid var(--vs-primary-blue);
 }
 
 .location-details {

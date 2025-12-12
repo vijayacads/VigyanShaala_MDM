@@ -40,8 +40,8 @@
 .filter-input:focus,
 .filter-select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--vs-primary-blue);
+  box-shadow: 0 0 0 3px rgba(44, 72, 105, 0.1);
 }
 
 .clear-filters-btn {
@@ -78,3 +78,4 @@
     grid-template-columns: 1fr;
   }
 }
+
