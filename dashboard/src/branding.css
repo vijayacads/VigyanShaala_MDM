@@ -1,6 +1,6 @@
-/* VigyanShaala Branding Colors and Fonts */
-
 @import url('https://fonts.googleapis.com/css2?family=Berkshire+Swash&display=swap');
+
+/* VigyanShaala Branding Colors and Fonts */
 
 :root {
   /* Primary Colors - Based on Identity Kit */
@@ -29,9 +29,6 @@
   --vs-font-secondary: 'Futura', 'Futura Lt BT', 'Arial', sans-serif;
   --vs-font-body: 'Futura', 'Futura Lt BT', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
-
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Berkshire+Swash&display=swap');
 
 /* Futura fallback - using system fonts that are similar */
 @font-face {
