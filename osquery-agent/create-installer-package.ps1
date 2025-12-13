@@ -109,8 +109,21 @@ net session >nul 2>&1
 if %errorLevel% == 0 (
     echo Running uninstaller with Administrator privileges...
     echo.
-    cd osquery-agent
-    powershell.exe -ExecutionPolicy Bypass -File "%~dp0uninstall-osquery.ps1" -RemoveFromSupabase
+    
+    REM Try to run from installed location first
+    if exist "C:\Program Files\osquery\uninstall-osquery.ps1" (
+        powershell.exe -ExecutionPolicy Bypass -File "C:\Program Files\osquery\uninstall-osquery.ps1" -RemoveFromSupabase
+    ) else if exist "%~dp0osquery-agent\uninstall-osquery.ps1" (
+        REM If not installed, try from installer package
+        powershell.exe -ExecutionPolicy Bypass -File "%~dp0osquery-agent\uninstall-osquery.ps1" -RemoveFromSupabase
+    ) else (
+        echo ERROR: Uninstall script not found!
+        echo.
+        echo Please ensure the MDM agent is installed, or run this from the installer package.
+        echo.
+        pause
+        exit /b 1
+    )
 ) else (
     echo.
     echo ERROR: Administrator privileges required!
