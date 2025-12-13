@@ -173,29 +173,83 @@ try {
     $mdmMarkerEnd = "# VigyanShaala-MDM Blocklist End"
     
     if (Test-Path $hostsFile) {
+        # Remove read-only attribute if present
+        $fileInfo = Get-Item $hostsFile -Force -ErrorAction SilentlyContinue
+        if ($fileInfo -and $fileInfo.IsReadOnly) {
+            $fileInfo.IsReadOnly = $false
+            Write-Host "Removed read-only attribute from hosts file" -ForegroundColor Yellow
+        }
+        
         $allLines = Get-Content $hostsFile -ErrorAction SilentlyContinue
         $cleanedLines = @()
         $insideMdmSection = $false
         $foundMdmSection = $false
         
         foreach ($line in $allLines) {
-            if ($line -eq $mdmMarkerStart) {
+            $trimmedLine = $line.Trim()
+            
+            # Check for start marker (handle exact match or with whitespace)
+            if ($trimmedLine -eq $mdmMarkerStart -or $line -match [regex]::Escape($mdmMarkerStart)) {
                 $insideMdmSection = $true
                 $foundMdmSection = $true
                 continue
             }
-            if ($line -eq $mdmMarkerEnd) {
+            
+            # Check for end marker
+            if ($trimmedLine -eq $mdmMarkerEnd -or $line -match [regex]::Escape($mdmMarkerEnd)) {
                 $insideMdmSection = $false
                 continue
             }
+            
+            # Only add lines outside the MDM section
             if (-not $insideMdmSection) {
                 $cleanedLines += $line
             }
         }
         
         if ($foundMdmSection) {
-            $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force
-            Write-Host "Removed MDM blocklist entries from hosts file" -ForegroundColor Green
+            # Write with retry logic in case file is locked
+            $maxRetries = 3
+            $retryCount = 0
+            $writeSuccess = $false
+            
+            while ($retryCount -lt $maxRetries -and -not $writeSuccess) {
+                try {
+                    # Use UTF8 encoding without BOM (Windows hosts file standard)
+                    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                    [System.IO.File]::WriteAllLines($hostsFile, $cleanedLines, $utf8NoBom)
+                    $writeSuccess = $true
+                    Write-Host "Removed MDM blocklist entries from hosts file" -ForegroundColor Green
+                    
+                    # Verify the write worked
+                    Start-Sleep -Milliseconds 500
+                    $verifyContent = Get-Content $hostsFile -Raw -ErrorAction SilentlyContinue
+                    if ($verifyContent -and $verifyContent -match [regex]::Escape($mdmMarkerStart)) {
+                        Write-Warning "WARNING: MDM markers still found in hosts file after removal attempt!"
+                        Write-Host "Attempting alternative removal method..." -ForegroundColor Yellow
+                        # Try Set-Content as fallback
+                        $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force -ErrorAction Stop
+                        Write-Host "Removed using alternative method" -ForegroundColor Green
+                    }
+                } catch {
+                    $retryCount++
+                    if ($retryCount -lt $maxRetries) {
+                        Write-Host "Retry $retryCount/$maxRetries: File may be locked, waiting..." -ForegroundColor Yellow
+                        Start-Sleep -Seconds 2
+                    } else {
+                        # Final attempt with Set-Content
+                        try {
+                            $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force -ErrorAction Stop
+                            Write-Host "Removed MDM blocklist entries from hosts file (using fallback method)" -ForegroundColor Green
+                            $writeSuccess = $true
+                        } catch {
+                            Write-Warning "Could not write to hosts file after $maxRetries attempts: $_"
+                            Write-Host "Please manually edit $hostsFile and remove the MDM blocklist section" -ForegroundColor Yellow
+                            Write-Host "  Look for lines between: $mdmMarkerStart and $mdmMarkerEnd" -ForegroundColor Yellow
+                        }
+                    }
+                }
+            }
             
             # Flush DNS cache multiple times to ensure it's cleared
             Write-Host "Flushing DNS cache..." -ForegroundColor Cyan
@@ -309,18 +363,20 @@ try {
     Write-Warning "Could not check/remove additional registry keys: $_"
 }
 
-# Step 7: Remove environment variables
-Write-Host "Removing environment variables..." -ForegroundColor Yellow
-try {
-    [Environment]::SetEnvironmentVariable("SUPABASE_URL", $null, "Machine")
-    [Environment]::SetEnvironmentVariable("SUPABASE_ANON_KEY", $null, "Machine")
-    [Environment]::SetEnvironmentVariable("FLEET_SERVER_URL", $null, "Machine")
-    Write-Host "Environment variables removed" -ForegroundColor Green
-} catch {
-    Write-Warning "Could not remove environment variables: $_"
+# Step 7: Read environment variables BEFORE removing them (needed for Supabase deletion)
+Write-Host "Reading Supabase credentials..." -ForegroundColor Yellow
+$supabaseUrlFromEnv = [Environment]::GetEnvironmentVariable("SUPABASE_URL", "Machine")
+$supabaseKeyFromEnv = [Environment]::GetEnvironmentVariable("SUPABASE_ANON_KEY", "Machine")
+
+# Use parameters if provided, otherwise use environment variables
+if (-not $SupabaseUrl -or [string]::IsNullOrWhiteSpace($SupabaseUrl)) {
+    $SupabaseUrl = $supabaseUrlFromEnv
+}
+if (-not $SupabaseAnonKey -or [string]::IsNullOrWhiteSpace($SupabaseAnonKey)) {
+    $SupabaseAnonKey = $supabaseKeyFromEnv
 }
 
-# Step 8: Remove device from Supabase (if credentials available)
+# Step 8: Remove device from Supabase (BEFORE removing environment variables)
 if ($SupabaseUrl -and $SupabaseAnonKey) {
     Write-Host ""
     Write-Host "Removing device from Supabase..." -ForegroundColor Yellow
@@ -352,6 +408,17 @@ if ($SupabaseUrl -and $SupabaseAnonKey) {
     Write-Host ""
     Write-Host "Note: Supabase credentials not found. Device will remain in dashboard." -ForegroundColor Yellow
     Write-Host "      You can remove it manually from the dashboard." -ForegroundColor Yellow
+}
+
+# Step 9: Remove environment variables (AFTER using them for Supabase deletion)
+Write-Host "Removing environment variables..." -ForegroundColor Yellow
+try {
+    [Environment]::SetEnvironmentVariable("SUPABASE_URL", $null, "Machine")
+    [Environment]::SetEnvironmentVariable("SUPABASE_ANON_KEY", $null, "Machine")
+    [Environment]::SetEnvironmentVariable("FLEET_SERVER_URL", $null, "Machine")
+    Write-Host "Environment variables removed" -ForegroundColor Green
+} catch {
+    Write-Warning "Could not remove environment variables: $_"
 }
 
 Write-Host ""
