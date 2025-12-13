@@ -50,7 +50,59 @@ serve(async (req) => {
     const currentTime = new Date().toISOString()
     let hasData = false
 
-    // Process geolocation data
+    // Process WiFi network data for location tracking
+    if (payload.wifi_networks && Array.isArray(payload.wifi_networks) && payload.wifi_networks.length > 0) {
+      hasData = true
+      const wifi = payload.wifi_networks[0]
+      
+      if (wifi.ssid && wifi.ssid.trim() !== '') {
+        // Update device WiFi SSID
+        await supabaseClient
+          .from('devices')
+          .update({
+            wifi_ssid: wifi.ssid,
+            last_seen: currentTime
+          })
+          .eq('hostname', device.hostname)
+
+        // Try to match WiFi SSID to location
+        // First, check if device has a location_id assigned
+        if (device.location_id) {
+          // Get location details
+          const { data: location } = await supabaseClient
+            .from('locations')
+            .select('id, latitude, longitude, radius_meters')
+            .eq('id', device.location_id)
+            .single()
+
+          if (location) {
+            // Use location coordinates for geofence check
+            // Note: WiFi-based location is approximate, so we use the assigned location's coordinates
+            // The WiFi SSID is stored for reference and future location mapping
+            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/geofence-alert`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                device_id: device.hostname,
+                latitude: location.latitude,
+                longitude: location.longitude
+              })
+            })
+          }
+        }
+      } else {
+        // WiFi data received but no SSID - still update last_seen
+        await supabaseClient
+          .from('devices')
+          .update({ last_seen: currentTime })
+          .eq('hostname', device.hostname)
+      }
+    }
+
+    // Process geolocation data (fallback if GPS is available)
     if (payload.geolocation && payload.geolocation.length > 0) {
       hasData = true
       const geo = payload.geolocation[0]
@@ -149,6 +201,66 @@ serve(async (req) => {
           .update({ last_seen: currentTime })
           .eq('hostname', device.hostname)
       }
+    }
+
+    // Process device health data
+    if (payload.device_health || payload.battery_health || payload.system_uptime || payload.crash_events) {
+      hasData = true
+      
+      let batteryPercent: number | null = null
+      let storageUsedPercent: number | null = null
+      let bootTimeSeconds: number | null = null
+      let crashCount: number = 0
+
+      // Process battery health
+      if (payload.battery_health && Array.isArray(payload.battery_health) && payload.battery_health.length > 0) {
+        const battery = payload.battery_health[0]
+        if (battery.percentage !== null && battery.percentage !== undefined) {
+          batteryPercent = parseInt(battery.percentage) || null
+        }
+      }
+
+      // Process storage usage
+      if (payload.device_health && Array.isArray(payload.device_health) && payload.device_health.length > 0) {
+        const health = payload.device_health[0]
+        if (health.total_storage && health.used_storage) {
+          const total = parseFloat(health.total_storage) || 0
+          const used = parseFloat(health.used_storage) || 0
+          if (total > 0) {
+            storageUsedPercent = Math.round((used / total) * 100)
+          }
+        }
+      }
+
+      // Process system uptime (for boot time calculation)
+      if (payload.system_uptime && Array.isArray(payload.system_uptime) && payload.system_uptime.length > 0) {
+        const uptime = payload.system_uptime[0]
+        if (uptime.uptime !== null && uptime.uptime !== undefined) {
+          // Uptime is in seconds, we can use it as boot time estimate
+          bootTimeSeconds = parseInt(uptime.uptime) || null
+        }
+      }
+
+      // Process crash events
+      if (payload.crash_events && Array.isArray(payload.crash_events) && payload.crash_events.length > 0) {
+        const crash = payload.crash_events[0]
+        if (crash.crash_count !== null && crash.crash_count !== undefined) {
+          crashCount = parseInt(crash.crash_count) || 0
+        }
+      }
+
+      // Upsert health data (performance_status will be calculated by trigger)
+      await supabaseClient
+        .from('device_health')
+        .upsert({
+          device_hostname: device.hostname,
+          battery_health_percent: batteryPercent,
+          storage_used_percent: storageUsedPercent,
+          boot_time_avg_seconds: bootTimeSeconds,
+          crash_error_count: crashCount
+        }, {
+          onConflict: 'device_hostname'
+        })
     }
 
     // Process browser history

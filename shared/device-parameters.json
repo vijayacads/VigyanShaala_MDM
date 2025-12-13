@@ -1,0 +1,165 @@
+{
+  "deviceParameters": {
+    "formFields": {
+      "hostname": {
+        "type": "text",
+        "required": true,
+        "label": "Hostname",
+        "autoFill": true,
+        "description": "Device hostname/computer name"
+      },
+      "device_inventory_code": {
+        "type": "text",
+        "required": false,
+        "label": "Inventory Code",
+        "autoFill": false,
+        "description": "Internal inventory tracking code"
+      },
+      "device_imei_number": {
+        "type": "text",
+        "required": false,
+        "label": "IMEI Number",
+        "autoFill": true,
+        "description": "Device IMEI/Serial identifier",
+        "windowsQuery": "Get-WmiObject Win32_BIOS | Select-Object -ExpandProperty SerialNumber",
+        "androidField": "Build.SERIAL"
+      },
+      "device_make": {
+        "type": "text",
+        "required": false,
+        "label": "Device Make",
+        "autoFill": true,
+        "description": "Manufacturer (e.g., Dell, HP, Lenovo)",
+        "windowsQuery": "Get-WmiObject Win32_ComputerSystem | Select-Object -ExpandProperty Manufacturer",
+        "androidField": "Build.MANUFACTURER"
+      },
+      "host_location": {
+        "type": "text",
+        "required": false,
+        "label": "Host Location",
+        "autoFill": false,
+        "description": "Physical location (College, Lab, etc.)"
+      },
+      "city_town_village": {
+        "type": "text",
+        "required": false,
+        "label": "City/Town/Village",
+        "autoFill": false,
+        "description": "City or town name"
+      },
+      "role": {
+        "type": "text",
+        "required": false,
+        "label": "Device Role",
+        "autoFill": false,
+        "description": "Device role/purpose"
+      },
+      "issue_date": {
+        "type": "date",
+        "required": false,
+        "label": "Issue Date",
+        "autoFill": false,
+        "description": "Date device was issued"
+      },
+      "os_version": {
+        "type": "text",
+        "required": true,
+        "label": "OS Version",
+        "autoFill": true,
+        "description": "Operating system version",
+        "windowsQuery": "$([System.Environment]::OSVersion.VersionString)",
+        "androidField": "Build.VERSION.RELEASE"
+      },
+      "latitude": {
+        "type": "number",
+        "required": false,
+        "label": "Latitude",
+        "autoFill": false,
+        "description": "GPS latitude coordinate"
+      },
+      "longitude": {
+        "type": "number",
+        "required": false,
+        "label": "Longitude",
+        "autoFill": false,
+        "description": "GPS longitude coordinate"
+      },
+      "wifi_ssid": {
+        "type": "text",
+        "required": false,
+        "label": "WiFi SSID",
+        "autoFill": true,
+        "description": "Connected WiFi network SSID",
+        "windowsQuery": "(netsh wlan show interfaces | Select-String 'SSID' | ForEach-Object { $_.ToString().Split(':')[1].Trim() }) -join ', '",
+        "androidField": "WifiManager.getConnectionInfo().getSSID()"
+      },
+      "assigned_teacher": {
+        "type": "text",
+        "required": false,
+        "label": "Assigned Teacher",
+        "autoFill": false,
+        "description": "Teacher assigned to device"
+      },
+      "assigned_student_leader": {
+        "type": "text",
+        "required": false,
+        "label": "Assigned Student Leader",
+        "autoFill": false,
+        "description": "Student leader assigned to device"
+      }
+    },
+    "healthParameters": {
+      "battery_health_percent": {
+        "type": "integer",
+        "range": [0, 100],
+        "tracked": true,
+        "inForm": false,
+        "description": "Battery health percentage"
+      },
+      "storage_used_percent": {
+        "type": "integer",
+        "range": [0, 100],
+        "tracked": true,
+        "inForm": false,
+        "description": "Storage used percentage"
+      },
+      "boot_time_avg_seconds": {
+        "type": "integer",
+        "tracked": true,
+        "inForm": false,
+        "description": "Average boot time in seconds"
+      },
+      "crash_error_count": {
+        "type": "integer",
+        "tracked": true,
+        "inForm": false,
+        "description": "Number of crashes/errors"
+      },
+      "performance_status": {
+        "type": "text",
+        "values": ["good", "warning", "critical"],
+        "calculated": true,
+        "inForm": false,
+        "formula": {
+          "good": "storage_used_percent < 80 AND (battery_health_percent > 20 OR battery_health_percent IS NULL) AND crash_error_count = 0",
+          "warning": "(storage_used_percent >= 80 AND storage_used_percent < 90) OR (battery_health_percent >= 10 AND battery_health_percent <= 20) OR (crash_error_count >= 1 AND crash_error_count <= 5)",
+          "critical": "storage_used_percent >= 90 OR battery_health_percent < 10 OR crash_error_count > 5"
+        },
+        "description": "Calculated performance status"
+      }
+    },
+    "systemFields": {
+      "compliance_status": {
+        "type": "text",
+        "values": ["compliant", "non_compliant", "unknown"],
+        "default": "unknown",
+        "description": "Device compliance status"
+      },
+      "last_seen": {
+        "type": "timestamp",
+        "tracked": true,
+        "description": "Last time device checked in"
+      }
+    }
+  }
+}

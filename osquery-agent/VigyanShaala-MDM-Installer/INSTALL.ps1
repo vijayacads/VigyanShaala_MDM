@@ -1,12 +1,13 @@
 # Master Installer Script for VigyanShaala MDM
-# Pre-configured with Supabase credentials
+# This script installs osquery and runs device enrollment
+# Run as Administrator
 
 param(
-    [Parameter(Mandatory=$false)]
-    [string]$SupabaseUrl = "https://ujmcjezpmyvpiasfrwhm.supabase.co",
+    [Parameter(Mandatory=$true)]
+    [string]$SupabaseUrl,
     
-    [Parameter(Mandatory=$false)]
-    [string]$SupabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqbWNqZXpwbXl2cGlhc2Zyd2htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzOTQ2NzQsImV4cCI6MjA4MDk3MDY3NH0.LNeLEQs2K1AXyTG2vlCHyfRLpavFBSGgqjtwLoXdyMQ"
+    [Parameter(Mandatory=$true)]
+    [string]$SupabaseKey
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,46 +28,49 @@ Write-Host ""
 
 # Get script directory
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location "$scriptDir\osquery-agent"
+Set-Location $scriptDir
 
 # Check if osquery MSI exists
-$osqueryMsi = Get-ChildItem -Path $scriptDir -Filter "osquery-*.msi" -Recurse | Select-Object -First 1
+$osqueryMsi = Get-ChildItem -Path $scriptDir -Filter "osquery-*.msi" | Select-Object -First 1
 
-if ($null -eq $osqueryMsi) {
-    $osqueryMsi = Get-ChildItem -Path $PSScriptRoot -Filter "osquery-*.msi" | Select-Object -First 1
-}
-
-if ($null -eq $osqueryMsi) {
-    Write-Host "osquery installer not found. Downloading..." -ForegroundColor Yellow
+if (-not $osqueryMsi) {
+    Write-Host "ERROR: osquery MSI installer not found!" -ForegroundColor Red
     Write-Host ""
-    $downloadUrl = "https://pkg.osquery.io/windows/osquery-5.11.0.msi"
-    $osqueryMsiPath = Join-Path $scriptDir "osquery-5.11.0.msi"
-    try {
-        Write-Host "Downloading osquery (this may take a few minutes)..." -ForegroundColor Cyan
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $osqueryMsiPath -UseBasicParsing
-        $osqueryMsi = Get-Item $osqueryMsiPath
-        Write-Host "Download complete!" -ForegroundColor Green
-    } catch {
-        Write-Host "ERROR: Failed to download osquery: $_" -ForegroundColor Red
-        Write-Host "Please download manually from: https://osquery.io/downloads" -ForegroundColor Yellow
+    Write-Host "Please download osquery from: https://osquery.io/downloads" -ForegroundColor Yellow
+    Write-Host "Save it as 'osquery-5.11.0.msi' (or similar) in this folder." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Would you like to download it now? (Y/N)" -ForegroundColor Cyan
+    $response = Read-Host
+    if ($response -eq 'Y' -or $response -eq 'y') {
+        Write-Host "Downloading osquery..." -ForegroundColor Yellow
+        $downloadUrl = "https://pkg.osquery.io/windows/osquery-5.11.0.msi"
+        $osqueryMsiPath = Join-Path $scriptDir "osquery-5.11.0.msi"
+        try {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $osqueryMsiPath -UseBasicParsing
+            $osqueryMsi = Get-Item $osqueryMsiPath
+            Write-Host "Download complete!" -ForegroundColor Green
+        } catch {
+            Write-Host "ERROR: Failed to download osquery: $_" -ForegroundColor Red
+            Write-Host "Please download manually from: https://osquery.io/downloads" -ForegroundColor Yellow
+            pause
+            exit 1
+        }
+    } else {
         pause
         exit 1
     }
 }
 
+Write-Host "Found osquery installer: $($osqueryMsi.Name)" -ForegroundColor Green
+Write-Host ""
+
+# Run the installation script
 Write-Host "Installing osquery and configuring device..." -ForegroundColor Cyan
 Write-Host ""
 
 try {
-    if ($osqueryMsi.DirectoryName -ne $PWD) {
-        Copy-Item $osqueryMsi.FullName $PWD -Force
-        $osqueryMsiName = $osqueryMsi.Name
-    } else {
-        $osqueryMsiName = $osqueryMsi.Name
-    }
-    
-    & ".\install-osquery.ps1" `
-        -OsqueryMsi $osqueryMsiName `
+    & "$scriptDir\install-osquery.ps1" `
+        -OsqueryMsi $osqueryMsi.Name `
         -SupabaseUrl $SupabaseUrl `
         -SupabaseKey $SupabaseKey
     

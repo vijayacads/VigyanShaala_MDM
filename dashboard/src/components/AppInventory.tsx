@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AgGridReact } from 'ag-grid-react'
 import { ColDef, ICellRendererParams } from 'ag-grid-community'
+import * as XLSX from 'xlsx'
 import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-alpine.css'
 import { supabase } from '../../supabase.config'
@@ -21,6 +22,19 @@ interface Device {
   serial_number?: string
   assigned_teacher?: string
   assigned_student_leader?: string
+  device_imei_number?: string
+  device_make?: string
+  role?: string
+  issue_date?: string
+  wifi_ssid?: string
+  performance_status?: string
+  device_status?: string
+  last_login_date?: string
+  battery_health_percent?: number
+  storage_used_percent?: number
+  boot_time_avg_seconds?: number
+  crash_error_count?: number
+  last_health_check?: string
 }
 
 interface AppInventoryProps {
@@ -101,6 +115,11 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
           serial_number,
           assigned_teacher,
           assigned_student_leader,
+          device_imei_number,
+          device_make,
+          role,
+          issue_date,
+          wifi_ssid,
           locations(name)
         `)
 
@@ -112,22 +131,47 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
 
       if (error) throw error
 
-      const formattedData = (data || []).map((d: any) => ({
-        hostname: d.hostname,
-        device_inventory_code: d.device_inventory_code,
-        location_name: d.locations?.name || 'Unassigned',
-        host_location: d.host_location,
-        city_town_village: d.city_town_village,
-        laptop_model: d.laptop_model,
-        compliance_status: d.compliance_status,
-        last_seen: d.last_seen ? new Date(d.last_seen).toLocaleString() : 'Never',
-        os_version: d.os_version || 'Unknown',
-        latitude: d.latitude,
-        longitude: d.longitude,
-        serial_number: d.serial_number,
-        assigned_teacher: d.assigned_teacher,
-        assigned_student_leader: d.assigned_student_leader
-      }))
+      // Fetch health data for devices
+      const hostnames = (data || []).map((d: any) => d.hostname)
+      const { data: healthData } = await supabase
+        .from('device_health')
+        .select('device_hostname, performance_status, device_status, last_login_date, battery_health_percent, storage_used_percent, boot_time_avg_seconds, crash_error_count, last_health_check')
+        .in('device_hostname', hostnames)
+
+      const healthMap = new Map((healthData || []).map((h: any) => [h.device_hostname, h]))
+
+      const formattedData = (data || []).map((d: any) => {
+        const health = healthMap.get(d.hostname)
+        return {
+          hostname: d.hostname,
+          device_inventory_code: d.device_inventory_code,
+          location_name: d.locations?.name || 'Unassigned',
+          host_location: d.host_location,
+          city_town_village: d.city_town_village,
+          laptop_model: d.laptop_model,
+          compliance_status: d.compliance_status,
+          last_seen: d.last_seen ? new Date(d.last_seen).toLocaleString() : 'Never',
+          os_version: d.os_version || 'Unknown',
+          latitude: d.latitude,
+          longitude: d.longitude,
+          serial_number: d.serial_number,
+          assigned_teacher: d.assigned_teacher,
+          assigned_student_leader: d.assigned_student_leader,
+          device_imei_number: d.device_imei_number,
+          device_make: d.device_make,
+          role: d.role,
+          issue_date: d.issue_date,
+          wifi_ssid: d.wifi_ssid,
+          performance_status: health?.performance_status || 'unknown',
+          device_status: health?.device_status || 'unknown',
+          last_login_date: health?.last_login_date || null,
+          battery_health_percent: health?.battery_health_percent || null,
+          storage_used_percent: health?.storage_used_percent || null,
+          boot_time_avg_seconds: health?.boot_time_avg_seconds || null,
+          crash_error_count: health?.crash_error_count || 0,
+          last_health_check: health?.last_health_check ? new Date(health.last_health_check).toLocaleString() : 'Never'
+        }
+      })
 
       setDevices(formattedData)
     } catch (error) {
@@ -162,22 +206,57 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
     return filtered
   }, [devices, searchText, cityFilter])
 
+  // Performance status renderer
+  const PerformanceStatusRenderer = (params: ICellRendererParams) => {
+    const status = params.value
+    const color = status === 'good' ? '#10b981' : status === 'warning' ? '#f59e0b' : status === 'critical' ? '#ef4444' : '#6b7280'
+    return <span style={{ color, fontWeight: 'bold' }}>{status ? status.toUpperCase() : 'UNKNOWN'}</span>
+  }
+
   const defaultColumnDefs: ColDef[] = useMemo(() => [
     { field: 'device_inventory_code', headerName: 'Inventory Code', sortable: true, filter: true, width: 150 },
     { field: 'hostname', headerName: 'Hostname', sortable: true, filter: true, width: 150 },
+    { field: 'device_imei_number', headerName: 'IMEI Number', sortable: true, filter: true, width: 150 },
+    { field: 'device_make', headerName: 'Device Make', sortable: true, filter: true, width: 120 },
+    { field: 'laptop_model', headerName: 'Model', sortable: true, filter: true, width: 150 },
+    { field: 'os_version', headerName: 'OS & Version', sortable: true, filter: true, width: 150 },
+    { field: 'role', headerName: 'Role', sortable: true, filter: true, width: 120 },
+    { field: 'issue_date', headerName: 'Issue Date', sortable: true, filter: true, width: 120 },
     { field: 'host_location', headerName: 'Host Location', sortable: true, filter: true, width: 180 },
     { field: 'location_name', headerName: 'Location', sortable: true, filter: true, width: 150 },
     { field: 'city_town_village', headerName: 'City/Town/Village', sortable: true, filter: true, width: 180 },
-    { field: 'laptop_model', headerName: 'Laptop Model', sortable: true, filter: true, width: 180 },
+    { field: 'serial_number', headerName: 'Serial Number', sortable: true, filter: true, width: 150 },
+    { field: 'assigned_teacher', headerName: 'Assigned Teacher', sortable: true, filter: true, width: 150 },
+    { field: 'assigned_student_leader', headerName: 'Student Leader', sortable: true, filter: true, width: 150 },
     { 
       field: 'compliance_status', 
-      headerName: 'Status', 
+      headerName: 'Compliance', 
       sortable: true, 
       filter: true,
       cellRenderer: StatusRenderer,
       width: 130
     },
-    { field: 'os_version', headerName: 'OS Version', sortable: true, width: 150 },
+    { 
+      field: 'device_status', 
+      headerName: 'Device Status', 
+      sortable: true, 
+      filter: true,
+      width: 120
+    },
+    { 
+      field: 'performance_status', 
+      headerName: 'Performance', 
+      sortable: true, 
+      filter: true,
+      cellRenderer: PerformanceStatusRenderer,
+      width: 130
+    },
+    { field: 'battery_health_percent', headerName: 'Battery Health (%)', sortable: true, width: 140 },
+    { field: 'storage_used_percent', headerName: 'Storage Used (%)', sortable: true, width: 140 },
+    { field: 'boot_time_avg_seconds', headerName: 'Boot Time (s)', sortable: true, width: 130 },
+    { field: 'crash_error_count', headerName: 'Crash/Error Count', sortable: true, width: 150 },
+    { field: 'last_health_check', headerName: 'Last Health Check', sortable: true, width: 180 },
+    { field: 'last_login_date', headerName: 'Last Login Date', sortable: true, width: 150 },
     { field: 'last_seen', headerName: 'Last Seen', sortable: true, width: 180 }
   ], [])
   
@@ -200,12 +279,102 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
     }
   }
 
+  const handleExportToExcel = () => {
+    try {
+      // Prepare data for export
+      const exportData = filteredDevices.map(device => ({
+        'Inventory Code': device.device_inventory_code || '',
+        'Hostname': device.hostname,
+        'IMEI Number': device.device_imei_number || '',
+        'Device Make': device.device_make || '',
+        'Model': device.laptop_model || '',
+        'OS & Version': device.os_version || '',
+        'Role': device.role || '',
+        'Issue Date': device.issue_date || '',
+        'Host Location': device.host_location || '',
+        'Location': device.location_name || '',
+        'City/Town/Village': device.city_town_village || '',
+        'Serial Number': device.serial_number || '',
+        'Assigned Teacher': device.assigned_teacher || '',
+        'Assigned Student Leader': device.assigned_student_leader || '',
+        'Compliance Status': device.compliance_status || '',
+        'Device Status': device.device_status || '',
+        'Performance Status': device.performance_status || '',
+        'Battery Health (%)': device.battery_health_percent ?? '',
+        'Storage Used (%)': device.storage_used_percent ?? '',
+        'Boot Time (s)': device.boot_time_avg_seconds ?? '',
+        'Crash/Error Count': device.crash_error_count ?? 0,
+        'Last Health Check': device.last_health_check || '',
+        'Last Login Date': device.last_login_date || '',
+        'Last Seen': device.last_seen || '',
+        'Latitude': device.latitude ?? '',
+        'Longitude': device.longitude ?? ''
+      }))
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.json_to_sheet(exportData)
+
+      // Set column widths
+      const colWidths = [
+        { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 15 },
+        { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 15 },
+        { wch: 18 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 15 },
+        { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+        { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 12 },
+        { wch: 12 }
+      ]
+      ws['!cols'] = colWidths
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Devices')
+
+      // Generate filename with current date
+      const date = new Date().toISOString().split('T')[0]
+      const filename = `VigyanShaala-Devices-${date}.xlsx`
+
+      // Write file
+      XLSX.writeFile(wb, filename)
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+      alert('Failed to export to Excel. Please try again.')
+    }
+  }
+
   return (
     <>
       <div className="inventory-container">
         <div className="inventory-header">
           <h2>📱 Device Inventory</h2>
-          <span className="device-count">{filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''}</span>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button 
+              onClick={handleExportToExcel}
+              className="export-excel-btn"
+              style={{
+                padding: '0.5rem 1rem',
+                background: 'var(--vs-gradient-primary)',
+                color: 'white',
+                border: '2px solid var(--vs-primary-yellow)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontFamily: 'var(--vs-font-secondary)',
+                boxShadow: '0 2px 8px rgba(44, 72, 105, 0.3)',
+                transition: 'all 0.3s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(44, 72, 105, 0.4)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(44, 72, 105, 0.3)'
+              }}
+            >
+              📊 Export to Excel
+            </button>
+            <span className="device-count">{filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''}</span>
+          </div>
         </div>
         <div className="ag-theme-alpine" style={{ height: '800px', width: '100%' }}>
           <AgGridReact

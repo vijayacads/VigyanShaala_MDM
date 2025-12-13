@@ -29,7 +29,9 @@ $filesToCopy = @(
     "apply-website-blocklist.ps1",
     "apply-software-blocklist.ps1",
     "sync-blocklist-scheduled.ps1",
-    "sync-software-blocklist-scheduled.ps1"
+    "sync-software-blocklist-scheduled.ps1",
+    "execute-commands.ps1",
+    "chat-interface.ps1"
 )
 
 foreach ($file in $filesToCopy) {

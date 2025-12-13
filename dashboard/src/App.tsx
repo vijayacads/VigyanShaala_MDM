@@ -8,6 +8,8 @@ import SoftwareBlocklist from './components/SoftwareBlocklist'
 import DeviceDownloads from './components/DeviceDownloads'
 import AddDevice from './components/AddDevice'
 import DeviceSearchFilter from './components/DeviceSearchFilter'
+import DeviceControl from './components/DeviceControl'
+import ChatSupport from './components/ChatSupport'
 import './App.css'
 
 interface Device {
@@ -32,7 +34,7 @@ interface DeviceFilters {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'downloads' | 'add-device'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'downloads' | 'add-device' | 'device-control' | 'chat'>('dashboard')
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [filters, setFilters] = useState<DeviceFilters>({
     searchText: '',
@@ -44,7 +46,15 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="header-left">
-          <img src="/logo.png" alt="VigyanShaala Logo" className="header-logo" />
+          <img 
+            src="/logo.png" 
+            alt="VigyanShaala Logo" 
+            className="header-logo"
+            onError={(e) => {
+              // Hide logo if file doesn't exist
+              e.currentTarget.style.display = 'none';
+            }}
+          />
           <h1>VigyanShaala MDM Dashboard</h1>
         </div>
         <div className="user-info">
@@ -84,6 +94,18 @@ function App() {
               onClick={() => setActiveTab('downloads')}
             >
               📥 Device Software Downloads
+            </button>
+            <button
+              className={activeTab === 'device-control' ? 'active' : ''}
+              onClick={() => setActiveTab('device-control')}
+            >
+              🎮 Device Control
+            </button>
+            <button
+              className={activeTab === 'chat' ? 'active' : ''}
+              onClick={() => setActiveTab('chat')}
+            >
+              💬 Live Chat
             </button>
           </nav>
         </aside>
@@ -143,6 +165,18 @@ function App() {
           {activeTab === 'downloads' && (
             <section className="downloads-section">
               <DeviceDownloads />
+            </section>
+          )}
+
+          {activeTab === 'device-control' && (
+            <section className="device-control-section">
+              <DeviceControl selectedDevice={selectedDevice} />
+            </section>
+          )}
+
+          {activeTab === 'chat' && (
+            <section className="chat-section">
+              <ChatSupport />
             </section>
           )}
         </main>

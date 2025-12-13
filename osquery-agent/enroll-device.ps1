@@ -19,6 +19,26 @@ if ([string]::IsNullOrWhiteSpace($SupabaseAnonKey)) {
     $SupabaseAnonKey = $env:SUPABASE_ANON_KEY
 }
 
+# Function to get WiFi SSID
+function Get-WiFiSSID {
+    try {
+        $wifiOutput = netsh wlan show interfaces 2>$null
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($wifiOutput)) {
+            foreach ($line in $wifiOutput) {
+                if ($line -match "^\s*SSID\s*:\s*(.+)$") {
+                    $ssid = $matches[1].Trim()
+                    if (-not [string]::IsNullOrWhiteSpace($ssid) -and $ssid -ne "") {
+                        return $ssid
+                    }
+                }
+            }
+        }
+    } catch {
+        # Ignore errors
+    }
+    return $null
+}
+
 # Function to get device information automatically
 function Get-DeviceInfo {
     $hostname = $env:COMPUTERNAME
@@ -40,11 +60,28 @@ function Get-DeviceInfo {
         $laptopModel = ""
     }
     
+    try {
+        $deviceMake = (Get-WmiObject Win32_ComputerSystem).Manufacturer
+    } catch {
+        $deviceMake = ""
+    }
+    
+    try {
+        $imei = (Get-WmiObject Win32_SystemEnclosure).SerialNumber
+    } catch {
+        $imei = $serial  # Fallback to serial number
+    }
+    
+    $wifiSSID = Get-WiFiSSID
+    
     return @{
         hostname = $hostname
         serial_number = $serial
+        device_imei_number = $imei
+        device_make = $deviceMake
         os_version = $osVersion
         laptop_model = $laptopModel
+        wifi_ssid = $wifiSSID
     }
 }
 
@@ -309,6 +346,8 @@ function Show-DeviceEnrollmentForm {
             device_inventory_code = $txtInventoryCode.Text.Trim()
             hostname = $txtHostname.Text.Trim()
             serial_number = if ([string]::IsNullOrWhiteSpace($txtSerial.Text)) { $null } else { $txtSerial.Text.Trim() }
+            device_imei_number = $deviceInfo.device_imei_number
+            device_make = $deviceInfo.device_make
             host_location = $txtHostLocation.Text.Trim()
             city_town_village = if ([string]::IsNullOrWhiteSpace($txtCity.Text)) { $null } else { $txtCity.Text.Trim() }
             laptop_model = if ([string]::IsNullOrWhiteSpace($txtLaptopModel.Text)) { $null } else { $txtLaptopModel.Text.Trim() }
@@ -317,6 +356,7 @@ function Show-DeviceEnrollmentForm {
             longitude = [double]$txtLongitude.Text
             assigned_teacher = if ([string]::IsNullOrWhiteSpace($txtAssignedTeacher.Text)) { $null } else { $txtAssignedTeacher.Text.Trim() }
             assigned_student_leader = if ([string]::IsNullOrWhiteSpace($txtAssignedStudentLeader.Text)) { $null } else { $txtAssignedStudentLeader.Text.Trim() }
+            wifi_ssid = $deviceInfo.wifi_ssid
         }
         
         Write-Host "Form data captured successfully" -ForegroundColor Green
@@ -357,12 +397,15 @@ function Register-DeviceInSupabase {
         hostname = $deviceData.hostname
         device_inventory_code = if ([string]::IsNullOrWhiteSpace($deviceData.device_inventory_code)) { $null } else { $deviceData.device_inventory_code }
         serial_number = if ([string]::IsNullOrWhiteSpace($deviceData.serial_number)) { $null } else { $deviceData.serial_number }
+        device_imei_number = if ([string]::IsNullOrWhiteSpace($deviceData.device_imei_number)) { $null } else { $deviceData.device_imei_number }
+        device_make = if ([string]::IsNullOrWhiteSpace($deviceData.device_make)) { $null } else { $deviceData.device_make }
         host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }
         city_town_village = if ([string]::IsNullOrWhiteSpace($deviceData.city_town_village)) { $null } else { $deviceData.city_town_village }
         laptop_model = if ([string]::IsNullOrWhiteSpace($deviceData.laptop_model)) { $null } else { $deviceData.laptop_model }
         latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }
         longitude = if ($deviceData.longitude) { [double]$deviceData.longitude } else { $null }
         os_version = if ([string]::IsNullOrWhiteSpace($deviceData.os_version)) { $null } else { $deviceData.os_version }
+        wifi_ssid = if ([string]::IsNullOrWhiteSpace($deviceData.wifi_ssid)) { $null } else { $deviceData.wifi_ssid }
         compliance_status = "unknown"
         last_seen = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
     } | ConvertTo-Json -Depth 10

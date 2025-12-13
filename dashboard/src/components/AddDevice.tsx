@@ -5,10 +5,13 @@ import './AddDevice.css'
 interface Device {
   hostname: string
   device_inventory_code?: string
-  serial_number?: string
+  device_imei_number?: string
+  device_make?: string
   host_location?: string
   city_town_village?: string
-  laptop_model?: string
+  role?: string
+  issue_date?: string
+  wifi_ssid?: string
   latitude?: number
   longitude?: number
   os_version?: string
@@ -27,16 +30,20 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
   const [formData, setFormData] = useState({
     hostname: '',
     device_inventory_code: '',
-    serial_number: '',
+    device_imei_number: '',
+    device_make: '',
     host_location: '',
     city_town_village: '',
-    laptop_model: '',
+    role: '',
+    issue_date: '',
+    wifi_ssid: '',
     latitude: '',
     longitude: '',
-    os_version: '10.0.19045',
+    os_version: '',
     assigned_teacher: '',
     assigned_student_leader: ''
   })
+  const [autoFillLoading, setAutoFillLoading] = useState(false)
 
   useEffect(() => {
     fetchDevices()
@@ -46,13 +53,50 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     try {
       const { data, error } = await supabase
         .from('devices')
-        .select('hostname, device_inventory_code, serial_number, host_location, city_town_village, laptop_model, latitude, longitude, os_version, assigned_teacher, assigned_student_leader')
+        .select('hostname, device_inventory_code, device_imei_number, device_make, host_location, city_town_village, role, issue_date, wifi_ssid, latitude, longitude, os_version, assigned_teacher, assigned_student_leader')
         .order('hostname', { ascending: true })
 
       if (error) throw error
       setDevices(data || [])
     } catch (error: any) {
       console.error('Error fetching devices:', error)
+    }
+  }
+
+  // Auto-fill device information
+  async function handleAutoFill() {
+    setAutoFillLoading(true)
+    try {
+      // Get hostname from system (browser environment - limited options)
+      const hostname = window.location.hostname || 'unknown'
+      
+      // Try to detect OS version from user agent
+      const userAgent = navigator.userAgent
+      let osVersion = ''
+      if (userAgent.includes('Windows NT 10.0')) osVersion = 'Windows 10'
+      else if (userAgent.includes('Windows NT 6.3')) osVersion = 'Windows 8.1'
+      else if (userAgent.includes('Windows NT 6.2')) osVersion = 'Windows 8'
+      else if (userAgent.includes('Mac OS X')) osVersion = 'macOS'
+      else if (userAgent.includes('Linux')) osVersion = 'Linux'
+      else osVersion = 'Unknown'
+
+      // Update form with auto-detected values
+      setFormData(prev => ({
+        ...prev,
+        hostname: prev.hostname || hostname,
+        os_version: prev.os_version || osVersion
+      }))
+
+      // Note: IMEI, device_make, and WiFi SSID require system-level access
+      // These would be auto-filled by the enrollment scripts (PowerShell/Android)
+      // For web form, we can only auto-fill what's available in browser context
+      
+      alert('Auto-filled available information. Note: IMEI, Device Make, and WiFi SSID require system-level access and will be auto-filled during device enrollment.')
+    } catch (error) {
+      console.error('Error auto-filling:', error)
+      alert('Could not auto-fill device information')
+    } finally {
+      setAutoFillLoading(false)
     }
   }
 
@@ -64,7 +108,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
       device.device_inventory_code?.toLowerCase().includes(query) ||
       device.host_location?.toLowerCase().includes(query) ||
       device.city_town_village?.toLowerCase().includes(query) ||
-      device.serial_number?.toLowerCase().includes(query)
+      device.device_imei_number?.toLowerCase().includes(query)
     ).slice(0, 10) // Limit to 10 results
   }, [deviceSearchQuery, devices])
 
@@ -76,13 +120,16 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     setFormData({
       hostname: device.hostname || '',
       device_inventory_code: device.device_inventory_code || '',
-      serial_number: device.serial_number || '',
+      device_imei_number: device.device_imei_number || '',
+      device_make: device.device_make || '',
       host_location: device.host_location || '',
       city_town_village: device.city_town_village || '',
-      laptop_model: device.laptop_model || '',
+      role: device.role || '',
+      issue_date: device.issue_date || '',
+      wifi_ssid: device.wifi_ssid || '',
       latitude: device.latitude?.toString() || '',
       longitude: device.longitude?.toString() || '',
-      os_version: device.os_version || '10.0.19045',
+      os_version: device.os_version || '',
       assigned_teacher: device.assigned_teacher || '',
       assigned_student_leader: device.assigned_student_leader || ''
     })
@@ -95,13 +142,16 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     setFormData({
       hostname: '',
       device_inventory_code: '',
-      serial_number: '',
+      device_imei_number: '',
+      device_make: '',
       host_location: '',
       city_town_village: '',
-      laptop_model: '',
+      role: '',
+      issue_date: '',
+      wifi_ssid: '',
       latitude: '',
       longitude: '',
-      os_version: '10.0.19045',
+      os_version: '',
       assigned_teacher: '',
       assigned_student_leader: ''
     })
@@ -144,13 +194,16 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
       const deviceData = {
         hostname: formData.hostname,
         device_inventory_code: formData.device_inventory_code || null,
-        serial_number: formData.serial_number || null,
+        device_imei_number: formData.device_imei_number || null,
+        device_make: formData.device_make || null,
         host_location: formData.host_location || null,
         city_town_village: formData.city_town_village || null,
-        laptop_model: formData.laptop_model || null,
+        role: formData.role || null,
+        issue_date: formData.issue_date || null,
+        wifi_ssid: formData.wifi_ssid || null,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-        os_version: formData.os_version,
+        os_version: formData.os_version || null,
         assigned_teacher: formData.assigned_teacher || null,
         assigned_student_leader: formData.assigned_student_leader || null
       }
@@ -192,7 +245,27 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
 
   return (
     <div className="add-device-container">
-      <h2>{editing ? '✏️ Edit Device' : '➕ Add New Device'}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2>{editing ? '✏️ Edit Device' : '➕ Add New Device'}</h2>
+        {!editing && (
+          <button
+            type="button"
+            onClick={handleAutoFill}
+            disabled={autoFillLoading}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'var(--vs-gradient-primary)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            {autoFillLoading ? 'Auto-filling...' : '🔍 Auto-fill Device Info'}
+          </button>
+        )}
+      </div>
       <form onSubmit={handleSubmit} className="add-device-form">
         <div className="form-row">
           <div className="form-group">
@@ -243,22 +316,55 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
 
         <div className="form-row">
           <div className="form-group">
-            <label>Laptop Model</label>
+            <label>Device IMEI Number</label>
             <input
               type="text"
-              value={formData.laptop_model}
-              onChange={(e) => setFormData({ ...formData, laptop_model: e.target.value })}
-              placeholder="Dell Latitude, HP ProBook, etc."
+              value={formData.device_imei_number}
+              onChange={(e) => setFormData({ ...formData, device_imei_number: e.target.value })}
+              placeholder="Auto-filled during enrollment"
             />
           </div>
 
           <div className="form-group">
-            <label>Serial Number</label>
+            <label>Device Make</label>
             <input
               type="text"
-              value={formData.serial_number}
-              onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-              placeholder="SN123456789"
+              value={formData.device_make}
+              onChange={(e) => setFormData({ ...formData, device_make: e.target.value })}
+              placeholder="Dell, HP, Lenovo, etc. (Auto-filled)"
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Device Role</label>
+            <input
+              type="text"
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              placeholder="Student device, Teacher device, etc."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Issue Date</label>
+            <input
+              type="date"
+              value={formData.issue_date}
+              onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>WiFi SSID</label>
+            <input
+              type="text"
+              value={formData.wifi_ssid}
+              onChange={(e) => setFormData({ ...formData, wifi_ssid: e.target.value })}
+              placeholder="Auto-detected during enrollment"
             />
           </div>
         </div>

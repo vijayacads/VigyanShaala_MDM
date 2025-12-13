@@ -225,7 +225,135 @@ Currently blocklists are stored but not enforced:
 
 ---
 
-### 9. Production Hardening
+### 9. Advanced Device Management Features
+
+**Priority: MEDIUM**
+
+#### 9.1 Device Health Tracking
+
+**Database Changes:**
+- Create new table: `device_health`
+- Columns: `device_hostname` (FK to devices), `battery_percent` (INTEGER), `storage_used_percent` (INTEGER), `boot_time_avg` (INTEGER seconds), `crash_count` (INTEGER), `performance_status` (TEXT: 'good'/'warning'/'critical'), `last_health_check` (TIMESTAMPTZ)
+
+**Agent Implementation:**
+- **Windows (osquery):** Add scheduled queries:
+  - Battery: `SELECT * FROM battery` (if available on laptops)
+  - Storage: `SELECT * FROM disk_usage` - calculate used percentage
+  - Boot time: Calculate from `system_info.uptime` or Windows Event Log
+  - Crashes: Query Windows Event Log for application/system crashes
+  - Performance: Calculate status based on thresholds (e.g., storage >90% = critical)
+- **Android:** Use BatteryManager, StorageManager APIs
+- Schedule health check every 5-15 minutes
+- Update `device_health` table via Supabase API
+
+**Dashboard:**
+- New component: `DeviceHealth.tsx`
+- Display health metrics in device details view
+- Health status indicators (color-coded: green/yellow/red)
+- Historical health trends (optional)
+
+---
+
+#### 9.2 Device Control (Lock/Unlock, Clear Cache)
+
+**Database Changes:**
+- Create new table: `device_commands`
+- Columns: `id` (UUID), `device_hostname` (FK to devices), `command_type` (TEXT: 'lock'/'unlock'/'clear_cache'), `status` (TEXT: 'pending'/'completed'/'failed'), `created_at` (TIMESTAMPTZ), `executed_at` (TIMESTAMPTZ), `error_message` (TEXT)
+
+**Communication Pattern:**
+- **Push Model:** Dashboard writes command to `device_commands` table
+- **Pull Model:** Agents poll every 30-60 seconds for pending commands
+- Query: `SELECT * FROM device_commands WHERE device_hostname = ? AND status = 'pending' ORDER BY created_at LIMIT 1`
+
+**Agent Implementation:**
+- **Windows:**
+  - Lock: `rundll32.exe user32.dll,LockWorkStation`
+  - Unlock: Requires password (may need additional auth mechanism)
+  - Clear Cache: PowerShell script to clear temp files, browser cache
+- **Android:**
+  - Lock: DeviceAdmin API `lockNow()`
+  - Unlock: Requires device password/pin
+  - Clear Cache: `PackageManager.clearApplicationUserData()` or `clearCache()`
+- After execution, update command status to 'completed' or 'failed'
+
+**Dashboard:**
+- UI buttons in device details view
+- Command history/log viewer
+- Status indicators for pending commands
+
+---
+
+#### 9.3 Broadcast Messaging/Alerts
+
+**Database Changes:**
+- Create new table: `broadcast_messages`
+- Columns: `id` (UUID), `message` (TEXT), `target_devices` (JSONB array of hostnames, or separate junction table), `created_at` (TIMESTAMPTZ), `status` (TEXT: 'active'/'dismissed'), `expires_at` (TIMESTAMPTZ, optional)
+
+**Agent Implementation:**
+- Poll for new messages every 30 seconds
+- Query: `SELECT * FROM broadcast_messages WHERE target_devices @> ?::jsonb AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())`
+- Display via:
+  - **Windows:** Toast notifications (PowerShell `New-BurntToastNotification`) or PowerShell popup window
+  - **Android:** Notification API with persistent notification
+- Mark as read/dismissed when user acknowledges
+
+**Dashboard:**
+- Message composer interface
+- Device selection (single device, location, or all devices)
+- Message history and delivery status
+
+---
+
+#### 9.4 Buzz Devices
+
+**Implementation:**
+- Similar architecture to device commands
+- Add `buzz` command type to `device_commands` table
+- **Windows:** Play system sound repeatedly using PowerShell `[console]::beep()` or WAV file playback
+- **Android:** Vibrate API `Vibrator.vibrate()` with pattern
+- Duration parameter (e.g., 5 seconds, 10 seconds)
+
+**Dashboard:**
+- "Buzz Device" button in device details
+- Duration selector (optional)
+
+---
+
+#### 9.5 Live Chat Support
+
+**Database Changes:**
+- Create new table: `chat_messages`
+- Columns: `id` (UUID), `device_hostname` (FK to devices), `sender` (TEXT: 'center'/'device'), `message` (TEXT), `timestamp` (TIMESTAMPTZ), `read_status` (BOOLEAN)
+
+**Architecture:**
+- **Real-time:** Use Supabase Realtime subscriptions for instant updates
+- **Fallback:** Agents poll every 10-15 seconds for new messages
+- **Agent UI:**
+  - **Windows:** PowerShell GUI window or embedded web view showing chat interface
+  - **Android:** In-app chat screen/activity
+- **Dashboard:** Chat interface component with device selection
+
+**Complexity:** HIGH - Requires bidirectional real-time communication and UI on devices
+
+**Implementation Steps:**
+1. Set up Supabase Realtime for `chat_messages` table
+2. Create chat UI component in dashboard
+3. Build agent-side chat interface (Windows PowerShell GUI or Android Activity)
+4. Implement message polling/real-time sync in agents
+5. Add read receipts and typing indicators (optional)
+
+---
+
+**Key Requirements for All Features:**
+- All features use command queue pattern: Dashboard → Database → Agent polling
+- Agents poll database every 30-60 seconds (configurable)
+- Commands/messages have status tracking (pending/completed/failed)
+- Error handling and retry logic for failed commands
+- RLS policies to ensure teachers can only control their location's devices
+
+---
+
+### 10. Production Hardening
 
 **Priority: HIGH (Before Production)**
 
@@ -251,7 +379,7 @@ Currently blocklists are stored but not enforced:
 
 ---
 
-### 10. Testing & Validation
+### 11. Testing & Validation
 
 **Priority: HIGH**
 
@@ -341,3 +469,4 @@ Before deploying to production:
 - **FleetDM Docs:** https://fleetdm.com/docs
 - **React Dashboard:** See `dashboard/README.md`
 - **Agent Installer:** See `osquery-agent/INSTALLER_README.md`
+

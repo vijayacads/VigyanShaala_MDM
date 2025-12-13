@@ -195,26 +195,55 @@ if ($SupabaseUrl -and $SupabaseKey) {
     }
     
     # ============================================
-    # Data Sending Task (sends osquery data to Supabase)
+    # Data Sending Task (NEW - sends osquery data to Supabase)
     # ============================================
+    Write-Host "`nCreating scheduled task to send osquery data..." -ForegroundColor Cyan
     $sendDataScript = "$InstallDir\send-osquery-data.ps1"
     if (Test-Path "send-osquery-data.ps1") {
-        Write-Host "`nCreating scheduled task to send osquery data..." -ForegroundColor Cyan
         Copy-Item "send-osquery-data.ps1" $sendDataScript -Force
-        
-        $dataTaskName = "VigyanShaala-MDM-SendOsqueryData"
-        $dataTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
-            -Argument "-ExecutionPolicy Bypass -File `"$sendDataScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
-        $dataTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 365)
-        $dataTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-        
-        try {
-            Unregister-ScheduledTask -TaskName $dataTaskName -ErrorAction SilentlyContinue
-            Register-ScheduledTask -TaskName $dataTaskName -Action $dataTaskAction -Trigger $dataTaskTrigger -Principal $dataTaskPrincipal -Description "Send osquery data to MDM server every 5 minutes" -Force | Out-Null
-            Write-Host "Data sending task created (runs every 5 minutes)" -ForegroundColor Green
-        } catch {
-            Write-Warning "Could not create data sending task: $_"
-        }
+    }
+    
+    $dataTaskName = "VigyanShaala-MDM-SendOsqueryData"
+    $dataTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-ExecutionPolicy Bypass -File `"$sendDataScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+    $dataTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 365)
+    $dataTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    
+    try {
+        Unregister-ScheduledTask -TaskName $dataTaskName -ErrorAction SilentlyContinue
+        Register-ScheduledTask -TaskName $dataTaskName -Action $dataTaskAction -Trigger $dataTaskTrigger -Principal $dataTaskPrincipal -Description "Send osquery data to MDM server every 5 minutes" -Force | Out-Null
+        Write-Host "Data sending task created (runs every 5 minutes)" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create data sending task: $_"
+    }
+    
+    # ============================================
+    # Command Processor Task (NEW - processes commands and messages)
+    # ============================================
+    Write-Host "`nCreating scheduled task for command processor..." -ForegroundColor Cyan
+    $commandScript = "$InstallDir\execute-commands.ps1"
+    if (Test-Path "execute-commands.ps1") {
+        Copy-Item "execute-commands.ps1" $commandScript -Force
+    }
+    
+    $commandTaskName = "VigyanShaala-MDM-CommandProcessor"
+    $commandTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-ExecutionPolicy Bypass -File `"$commandScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`""
+    $commandTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Seconds 30) -RepetitionDuration (New-TimeSpan -Days 365)
+    $commandTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    
+    try {
+        Unregister-ScheduledTask -TaskName $commandTaskName -ErrorAction SilentlyContinue
+        Register-ScheduledTask -TaskName $commandTaskName -Action $commandTaskAction -Trigger $commandTaskTrigger -Principal $commandTaskPrincipal -Description "Process MDM commands and messages every 30 seconds" -Force | Out-Null
+        Write-Host "Command processor task created (runs every 30 seconds)" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create command processor task: $_"
+    }
+    
+    # Copy chat interface script (optional, for manual use)
+    if (Test-Path "chat-interface.ps1") {
+        Copy-Item "chat-interface.ps1" "$InstallDir\chat-interface.ps1" -Force
+        Write-Host "Chat interface script copied (for manual use)" -ForegroundColor Green
     }
 }
 

@@ -78,7 +78,28 @@ if ($osqueryProduct) {
     }
 }
 
-# Step 3: Remove installation directory
+# Step 3: Remove scheduled tasks
+Write-Host "Removing scheduled tasks..." -ForegroundColor Yellow
+$taskNames = @(
+    "VigyanShaala-MDM-SyncWebsiteBlocklist",
+    "VigyanShaala-MDM-SyncSoftwareBlocklist",
+    "VigyanShaala-MDM-SendOsqueryData",
+    "VigyanShaala-MDM-CommandProcessor"
+)
+
+foreach ($taskName in $taskNames) {
+    try {
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($task) {
+            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Stop
+            Write-Host "Removed scheduled task: $taskName" -ForegroundColor Green
+        }
+    } catch {
+        Write-Warning "Could not remove task $taskName : $_"
+    }
+}
+
+# Step 4: Remove installation directory
 if (Test-Path $InstallDir) {
     Write-Host "Removing installation directory..." -ForegroundColor Yellow
     try {
