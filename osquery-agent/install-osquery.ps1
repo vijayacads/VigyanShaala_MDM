@@ -253,6 +253,34 @@ if ($SupabaseUrl -and $SupabaseKey) {
     }
     
     # ============================================
+    # Battery Data Collection Task (WMI-based)
+    # ============================================
+    Write-Host "`nCreating scheduled task for battery data collection (WMI)..." -ForegroundColor Cyan
+    $batteryScript = "$InstallDir\get-battery-wmi.ps1"
+    if (Test-Path "get-battery-wmi.ps1") {
+        Copy-Item "get-battery-wmi.ps1" $batteryScript -Force
+        Write-Host "get-battery-wmi.ps1 copied" -ForegroundColor Green
+    } else {
+        Write-Warning "get-battery-wmi.ps1 not found - battery data collection will not work"
+    }
+    
+    $batteryTaskName = "VigyanShaala-MDM-CollectBatteryData"
+    $batteryTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-ExecutionPolicy Bypass -File `"$batteryScript`""
+    $batteryTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 365)
+    $batteryTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $batteryTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RunOnlyIfNetworkAvailable:$false
+    
+    try {
+        Unregister-ScheduledTask -TaskName $batteryTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        $task = Register-ScheduledTask -TaskName $batteryTaskName -Action $batteryTaskAction -Trigger $batteryTaskTrigger -Principal $batteryTaskPrincipal -Settings $batteryTaskSettings -Description "Collect battery data using WMI every 10 minutes" -Force
+        Enable-ScheduledTask -TaskName $batteryTaskName
+        Write-Host "Battery data collection task created and enabled (runs every 10 minutes)" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create battery data collection task: $_"
+    }
+    
+    # ============================================
     # Command Processor Task (NEW - processes commands and messages)
     # ============================================
     Write-Host "`nCreating scheduled task for command processor..." -ForegroundColor Cyan
