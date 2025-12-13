@@ -147,7 +147,25 @@ if (Test-Path $programDataDir) {
     }
 }
 
-# Step 5: Remove environment variables (optional - commented out to preserve for reinstall)
+# Step 5: Remove desktop shortcuts
+Write-Host "Removing desktop shortcuts..." -ForegroundColor Yellow
+$desktopShortcuts = @(
+    "$env:USERPROFILE\Desktop\VigyanShaala Chat.lnk",
+    "$env:PUBLIC\Desktop\VigyanShaala Chat.lnk"
+)
+
+foreach ($shortcut in $desktopShortcuts) {
+    if (Test-Path $shortcut) {
+        try {
+            Remove-Item -Path $shortcut -Force -ErrorAction Stop
+            Write-Host "Removed desktop shortcut: $shortcut" -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not remove shortcut $shortcut : $_"
+        }
+    }
+}
+
+# Step 6: Remove environment variables (optional - commented out to preserve for reinstall)
 # Uncomment if you want to remove environment variables
 <#
 Write-Host "Removing environment variables..." -ForegroundColor Yellow
@@ -161,7 +179,7 @@ try {
 }
 #>
 
-# Step 6: Remove device from Supabase (if credentials available)
+# Step 7: Remove device from Supabase (if credentials available)
 if ($SupabaseUrl -and $SupabaseAnonKey) {
     Write-Host ""
     Write-Host "Removing device from Supabase..." -ForegroundColor Yellow
