@@ -37,14 +37,14 @@ if (-not $osqueryMsi) {
     Write-Host "ERROR: osquery MSI installer not found!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please download osquery from: https://osquery.io/downloads" -ForegroundColor Yellow
-    Write-Host "Save it as 'osquery-5.11.0.msi' (or similar) in this folder." -ForegroundColor Yellow
+    Write-Host "Save it as 'osquery-5.20.0.msi' (or similar) in this folder." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Would you like to download it now? (Y/N)" -ForegroundColor Cyan
     $response = Read-Host
     if ($response -eq 'Y' -or $response -eq 'y') {
-        Write-Host "Downloading osquery..." -ForegroundColor Yellow
-        $downloadUrl = "https://pkg.osquery.io/windows/osquery-5.11.0.msi"
-        $osqueryMsiPath = Join-Path $osqueryAgentDir "osquery-5.11.0.msi"
+        Write-Host "Downloading osquery 5.20.0 (latest stable)..." -ForegroundColor Yellow
+        $downloadUrl = "https://pkg.osquery.io/windows/osquery-5.20.0.msi"
+        $osqueryMsiPath = Join-Path $osqueryAgentDir "osquery-5.20.0.msi"
         try {
             Invoke-WebRequest -Uri $downloadUrl -OutFile $osqueryMsiPath -UseBasicParsing
             $osqueryMsi = Get-Item $osqueryMsiPath
