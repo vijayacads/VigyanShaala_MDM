@@ -170,7 +170,7 @@ function App() {
 
           {activeTab === 'device-control' && (
             <section className="device-control-section">
-              <DeviceControl selectedDevice={selectedDevice} />
+              <DeviceControl selectedDevice={selectedDevice?.hostname || null} />
             </section>
           )}
 
