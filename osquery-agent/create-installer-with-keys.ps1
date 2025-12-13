@@ -36,6 +36,8 @@ $filesToCopy = @(
     "sync-blocklist-scheduled.ps1",
     "sync-software-blocklist-scheduled.ps1",
     "send-osquery-data.ps1",
+    "trigger-osquery-queries.ps1",  # For debugging/manual testing
+    "get-battery-wmi.ps1",  # WMI-based battery data collection
     "execute-commands.ps1",
     "user-notify-agent.ps1",  # User-session notification agent for buzz/toast
     "chat-interface.ps1",

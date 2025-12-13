@@ -34,6 +34,7 @@ $filesToCopy = @(
     "trigger-osquery-queries.ps1",  # For debugging/manual testing
     "get-battery-wmi.ps1",  # WMI-based battery data collection
     "execute-commands.ps1",
+    "user-notify-agent.ps1",  # User-session notification agent for buzz/toast
     "chat-interface.ps1",
     "VigyanShaala_Chat.bat",
     "uninstall-osquery.ps1"
@@ -54,6 +55,15 @@ foreach ($file in $filesToCopy) {
     } else {
         Write-Warning "File not found: $file"
     }
+}
+
+# Copy Logo.png if it exists (for chat interface and desktop shortcut)
+if (Test-Path "Logo.png") {
+    Copy-Item "Logo.png" "$OutputPath\osquery-agent\" -Force
+    Write-Host "Copied: Logo.png" -ForegroundColor Green
+} elseif (Test-Path "..\dashboard\public\Logo.png") {
+    Copy-Item "..\dashboard\public\Logo.png" "$OutputPath\osquery-agent\" -Force
+    Write-Host "Copied: Logo.png (from dashboard)" -ForegroundColor Green
 }
 
 # Create configured INSTALL.bat
