@@ -32,6 +32,7 @@ $filesToCopy = @(
     "sync-software-blocklist-scheduled.ps1",
     "send-osquery-data.ps1",
     "trigger-osquery-queries.ps1",  # For debugging/manual testing
+    "get-battery-wmi.ps1",  # WMI-based battery data collection
     "execute-commands.ps1",
     "chat-interface.ps1",
     "VigyanShaala_Chat.bat",

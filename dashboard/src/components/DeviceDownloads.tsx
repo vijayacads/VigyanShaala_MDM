@@ -46,7 +46,8 @@ export default function DeviceDownloads() {
       <h2>📥 Device Software Downloads</h2>
       <p className="downloads-description">
         Download the MDM installer package for your device platform. 
-        The installer includes device enrollment, website blocking, and software blocking features.
+        The installer includes device enrollment, website blocking, software blocking, 
+        device control commands, broadcast messaging, and notification features.
       </p>
 
       <div className="download-buttons">
@@ -55,7 +56,8 @@ export default function DeviceDownloads() {
           <h3>Windows Installer</h3>
           <p className="platform-description">
             For Windows laptops and computers<br/>
-            Includes osquery agent, website blocking, and software blocking
+            Includes osquery agent, website blocking, software blocking, 
+            device control (lock/unlock/buzz), broadcast messaging, and chat interface
           </p>
           <button 
             className="download-btn windows-btn"
@@ -122,6 +124,9 @@ export default function DeviceDownloads() {
           <li>✅ Device enrollment and registration</li>
           <li>✅ Website blocking (all browsers)</li>
           <li>✅ Software/App blocking</li>
+          <li>✅ Device control commands (lock, unlock, clear cache, buzz)</li>
+          <li>✅ Broadcast messaging with toast notifications</li>
+          <li>✅ Chat interface for device support</li>
           <li>✅ Automatic policy sync</li>
           <li>✅ Device monitoring and reporting</li>
         </ul>

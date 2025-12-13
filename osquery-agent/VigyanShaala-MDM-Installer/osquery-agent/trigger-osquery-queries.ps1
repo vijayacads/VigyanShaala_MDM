@@ -72,69 +72,59 @@ if ($deviceHealthJson) {
     }
 }
 
-Write-Host "Running battery_health query..." -ForegroundColor Yellow
-# Primary: osquery (consistent with other queries), Fallback: WMI (for compatibility)
+Write-Host "Running battery_health query (WMI only)..." -ForegroundColor Yellow
+# Use WMI only for battery data (more reliable on Windows)
 $batteryData = $null
 
-# Primary: osquery battery table (works on osquery v5.12.1+)
-# Battery table columns: percent_remaining, condition, state, charging, charged, etc.
-# Note: Removed WHERE clause to ensure we get battery data even if percent_remaining is NULL
 try {
-    $batteryQuery = "SELECT percent_remaining as percentage, condition as health, state, charging FROM battery LIMIT 1;"
-    $batteryOutput = & $osqueryiPath --json $batteryQuery 2>&1
-    $batteryJson = Get-JsonFromOsqueryOutput -Output $batteryOutput
-    if ($batteryJson) {
-        $batteryArray = $batteryJson | ConvertFrom-Json
-        if ($batteryArray -and $batteryArray.Count -gt 0 -and $batteryArray[0]) {
-            $batteryData = $batteryArray[0]
-            # If percentage is NULL, try to get it from WMI fallback
-            if ($null -eq $batteryData.percentage -or $batteryData.percentage -eq '') {
-                Write-Host "  [WARN] osquery battery data found but percentage is NULL, trying WMI fallback..." -ForegroundColor Yellow
-                $batteryData = $null  # Will trigger WMI fallback below
-            } else {
-                Write-Host "  [OK] Battery data from osquery (Percentage: $($batteryData.percentage)%)" -ForegroundColor Green
-            }
+    $battery = Get-WmiObject -Class Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($battery -and $battery.EstimatedChargeRemaining -ne $null) {
+        # Map WMI battery status codes to health status
+        $healthStatus = switch ($battery.BatteryStatus) {
+            1 { "Other" }
+            2 { "Unknown" }
+            3 { "Fully Charged" }
+            4 { "Low" }
+            5 { "Critical" }
+            6 { "Charging" }
+            7 { "Charging and High" }
+            8 { "Charging and Low" }
+            9 { "Charging and Critical" }
+            10 { "Undefined" }
+            11 { "Partially Charged" }
+            default { "Unknown" }
         }
+        
+        # Determine charging state
+        $isCharging = $false
+        if ($battery.BatteryStatus -in @(6, 7, 8, 9)) {
+            $isCharging = $true
+        }
+        
+        # Determine state
+        $state = switch ($battery.BatteryStatus) {
+            3 { "Fully Charged" }
+            6 { "Charging" }
+            7 { "Charging" }
+            8 { "Charging" }
+            9 { "Charging" }
+            11 { "Partially Charged" }
+            default { "Discharging" }
+        }
+        
+        $batteryData = @{
+            percentage = $battery.EstimatedChargeRemaining
+            health = $healthStatus
+            state = $state
+            charging = if ($isCharging) { "1" } else { "0" }
+        }
+        Write-Host "  [OK] Battery data from WMI (Percentage: $($batteryData.percentage)%)" -ForegroundColor Green
     }
 } catch {
-    # osquery battery table not available, will use WMI fallback
-    Write-Host "  [WARN] osquery battery query failed, will try WMI fallback" -ForegroundColor Yellow
+    Write-Host "  [ERROR] Failed to get battery data from WMI: $_" -ForegroundColor Red
 }
 
-# Fallback: WMI if osquery didn't work (for older osquery versions or compatibility)
-if (-not $batteryData) {
-    try {
-        $battery = Get-WmiObject -Class Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($battery -and $battery.EstimatedChargeRemaining -ne $null) {
-            # Map WMI battery status codes to health status
-            $healthStatus = switch ($battery.BatteryStatus) {
-                1 { "Other" }
-                2 { "Unknown" }
-                3 { "Fully Charged" }
-                4 { "Low" }
-                5 { "Critical" }
-                6 { "Charging" }
-                7 { "Charging and High" }
-                8 { "Charging and Low" }
-                9 { "Charging and Critical" }
-                10 { "Undefined" }
-                11 { "Partially Charged" }
-                default { "Unknown" }
-            }
-            
-            $batteryData = @{
-                percentage = $battery.EstimatedChargeRemaining
-                health = $healthStatus
-                status = $battery.BatteryStatus
-            }
-            Write-Host "  [OK] Battery data from WMI (fallback - osquery battery table not available)" -ForegroundColor Yellow
-        }
-    } catch {
-        # WMI also failed
-    }
-}
-
-# Write battery data if we got it from either source
+# Write battery data if we got it
 if ($batteryData) {
     $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     $hostname = $env:COMPUTERNAME
@@ -155,8 +145,7 @@ if ($batteryData) {
         action = 'added'
     } | ConvertTo-Json -Depth 10 -Compress
     Add-Content -Path $logPath -Value $entry -Force -ErrorAction SilentlyContinue
-    $percentage = if ($batteryData.percentage) { "$($batteryData.percentage)%" } else { "N/A" }
-    Write-Host "  [OK] battery_health data written to log (Percentage: $percentage)" -ForegroundColor Green
+    Write-Host "  [OK] battery_health data written to log (Percentage: $($batteryData.percentage)%)" -ForegroundColor Green
 } else {
     Write-Host "  [WARN] No battery data (device may not have battery or battery not detected)" -ForegroundColor Gray
 }

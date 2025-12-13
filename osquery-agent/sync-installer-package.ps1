@@ -25,6 +25,7 @@ $filesToSync = @(
     "sync-software-blocklist-scheduled.ps1",
     "send-osquery-data.ps1",
     "trigger-osquery-queries.ps1",
+    "get-battery-wmi.ps1",
     "execute-commands.ps1",
     "chat-interface.ps1",
     "VigyanShaala_Chat.bat",

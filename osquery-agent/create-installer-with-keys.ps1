@@ -34,16 +34,39 @@ $filesToCopy = @(
     "apply-website-blocklist.ps1",
     "apply-software-blocklist.ps1",
     "sync-blocklist-scheduled.ps1",
-    "sync-software-blocklist-scheduled.ps1"
+    "sync-software-blocklist-scheduled.ps1",
+    "send-osquery-data.ps1",
+    "execute-commands.ps1",
+    "user-notify-agent.ps1",  # User-session notification agent for buzz/toast
+    "chat-interface.ps1",
+    "VigyanShaala_Chat.bat",
+    "uninstall-osquery.ps1"
 )
 
 foreach ($file in $filesToCopy) {
     if (Test-Path $file) {
-        Copy-Item $file "$OutputPath\osquery-agent\" -Force
-        Write-Host "  ✓ $file" -ForegroundColor Green
+        # For PowerShell files, preserve UTF-8 BOM encoding (needed for emojis)
+        if ($file -like "*.ps1") {
+            $content = Get-Content $file -Raw
+            $utf8WithBom = New-Object System.Text.UTF8Encoding $true
+            [System.IO.File]::WriteAllText("$OutputPath\osquery-agent\$file", $content, $utf8WithBom)
+            Write-Host "  ✓ $file (with UTF-8 BOM)" -ForegroundColor Green
+        } else {
+            Copy-Item $file "$OutputPath\osquery-agent\" -Force
+            Write-Host "  ✓ $file" -ForegroundColor Green
+        }
     } else {
         Write-Warning "  ✗ File not found: $file"
     }
+}
+
+# Copy Logo.png if it exists (for chat interface and desktop shortcut)
+if (Test-Path "Logo.png") {
+    Copy-Item "Logo.png" "$OutputPath\osquery-agent\" -Force
+    Write-Host "  ✓ Logo.png" -ForegroundColor Green
+} elseif (Test-Path "..\dashboard\public\Logo.png") {
+    Copy-Item "..\dashboard\public\Logo.png" "$OutputPath\osquery-agent\" -Force
+    Write-Host "  ✓ Logo.png (from dashboard)" -ForegroundColor Green
 }
 
 # Create INSTALL.ps1 with keys baked in
