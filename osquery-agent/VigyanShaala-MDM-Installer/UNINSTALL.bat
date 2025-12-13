@@ -13,7 +13,7 @@ if %errorLevel% == 0 (
     echo Running uninstaller with Administrator privileges...
     echo.
     cd osquery-agent
-    powershell.exe -ExecutionPolicy Bypass -File "%~dp0uninstall-osquery.ps1"
+    powershell.exe -ExecutionPolicy Bypass -File "%~dp0uninstall-osquery.ps1" -RemoveFromSupabase
 ) else (
     echo.
     echo ERROR: Administrator privileges required!

@@ -161,8 +161,8 @@ try {
 }
 #>
 
-# Step 6: Optionally remove device from Supabase
-if ($RemoveFromSupabase -and $SupabaseUrl -and $SupabaseAnonKey) {
+# Step 6: Remove device from Supabase (if credentials available)
+if ($SupabaseUrl -and $SupabaseAnonKey) {
     Write-Host ""
     Write-Host "Removing device from Supabase..." -ForegroundColor Yellow
     
@@ -192,6 +192,10 @@ if ($RemoveFromSupabase -and $SupabaseUrl -and $SupabaseAnonKey) {
         Write-Warning "Could not remove device from Supabase: $_"
         Write-Host "You may need to remove it manually from the dashboard" -ForegroundColor Yellow
     }
+} else {
+    Write-Host ""
+    Write-Host "Note: Supabase credentials not found. Device will remain in dashboard." -ForegroundColor Yellow
+    Write-Host "      You can remove it manually from the dashboard." -ForegroundColor Yellow
 }
 
 Write-Host ""
