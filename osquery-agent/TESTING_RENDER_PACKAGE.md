@@ -1,18 +1,10 @@
-# Testing Instructions: User Session Agent
+# Testing Instructions: Render Package Download Scenario
 
-## Prerequisites
+## Overview
 
-1. **Apply Database Migration**
-   - Run `supabase/migrations/022_create_user_notifications.sql` in your Supabase database
-   - Verify the `user_notifications` table was created
+This guide is specifically for testing when you download the installer package from Render, which already has Supabase credentials pre-configured.
 
-2. **Download Installer Package from Render**
-   - The package should already contain Supabase credentials configured
-   - Extract and run the installer on your test Windows device
-
-## Step-by-Step Testing (Using Render Package Download)
-
-### 1. Apply Database Migration
+## Step 1: Apply Database Migration
 
 **In Supabase Dashboard:**
 1. Go to SQL Editor
@@ -27,7 +19,7 @@
 SELECT * FROM user_notifications LIMIT 1;
 ```
 
-### 2. Download and Install Package from Render
+## Step 2: Download and Install Package from Render
 
 **Download the installer package:**
 1. Go to your Render dashboard
@@ -50,7 +42,7 @@ SELECT * FROM user_notifications LIMIT 1;
 - Check for success messages in the PowerShell window
 - Look for: "User notification agent task created (runs at user logon)"
 
-### 3. Verify User Agent is Running
+## Step 3: Verify User Agent is Running
 
 **After installation, log out and log back in** (or restart the computer) to trigger the user-session agent.
 
@@ -93,7 +85,7 @@ Start-Sleep -Seconds 5
 Get-Content "$env:TEMP\VigyanShaala-UserNotify.log" -Tail 10
 ```
 
-### 4. Test Buzz Command
+## Step 4: Test Buzz Command
 
 **From Dashboard (hosted on Render):**
 1. Open your MDM dashboard (hosted on Render)
@@ -141,7 +133,7 @@ LIMIT 5;
 - `processed_at` should be set (within last few minutes)
 - `payload` should contain `{"duration": 5}` (or your selected duration)
 
-### 5. Test Toast Notification
+## Step 5: Test Toast Notification
 
 **From Dashboard:**
 1. Go to Device Control section
@@ -189,7 +181,7 @@ LIMIT 5;
 - Latest notification should have `status = 'completed'`
 - `payload` should contain `{"title": "...", "message": "..."}`
 
-### 6. Verify End-to-End Flow
+## Step 6: Verify End-to-End Flow
 
 **Complete test scenario:**
 1. **Send command from dashboard** → Should appear in `device_commands` table
@@ -221,77 +213,73 @@ LIMIT 5;
 
 ## Troubleshooting
 
-### Agent Not Running
+### Agent Not Running After Installation
 
-**Check task:**
+**Check if task was created:**
 ```powershell
 Get-ScheduledTask -TaskName "VigyanShaala-UserNotify-Agent" | Format-List *
 ```
 
-**Manually start:**
+**Check environment variables:**
 ```powershell
-Start-ScheduledTask -TaskName "VigyanShaala-UserNotify-Agent"
-```
-
-**Check if task runs at logon:**
-- Log out and log back in
-- Check if agent starts automatically
-
-### Notifications Not Processing
-
-**Check username matching:**
-```powershell
-# On device, check what username format is used
-$env:USERNAME
-$env:USERDOMAIN
-[System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-```
-
-**Check hostname matching:**
-```powershell
-$env:COMPUTERNAME
-# Should match device_hostname in database (case-insensitive, normalized to uppercase)
-```
-
-**Check database connection:**
-```powershell
-# Verify environment variables are set
 $env:SUPABASE_URL
 $env:SUPABASE_ANON_KEY
 ```
 
-**Check logs for errors:**
+**If variables are not set, check system environment variables:**
 ```powershell
-Get-Content "$env:TEMP\VigyanShaala-UserNotify.log" | Select-String -Pattern "ERROR"
+[System.Environment]::GetEnvironmentVariable("SUPABASE_URL", "Machine")
+[System.Environment]::GetEnvironmentVariable("SUPABASE_ANON_KEY", "Machine")
 ```
 
-### Buzz Not Playing
+**Manually start the agent:**
+```powershell
+# Navigate to installation directory
+cd "C:\Program Files\osquery"
+
+# Run agent manually (for testing)
+.\user-notify-agent.ps1
+```
+
+### Notifications Not Processing
+
+**Check username/hostname matching:**
+```powershell
+# Check what the agent sees
+$env:COMPUTERNAME
+$env:USERNAME
+$env:USERDOMAIN
+
+# Check logs for matching issues
+Get-Content "$env:TEMP\VigyanShaala-UserNotify.log" | Select-String -Pattern "Device:|User:"
+```
+
+**Verify database connection:**
+```powershell
+# Test Supabase connection
+$headers = @{
+    "apikey" = $env:SUPABASE_ANON_KEY
+    "Authorization" = "Bearer $env:SUPABASE_ANON_KEY"
+}
+Invoke-RestMethod -Uri "$env:SUPABASE_URL/rest/v1/user_notifications?limit=1" -Headers $headers
+```
+
+### Buzz/Toast Not Working
+
+**Check if agent is running in correct session:**
+```powershell
+# Agent should be running as logged-in user, not SYSTEM
+Get-Process | Where-Object { $_.CommandLine -like "*user-notify-agent*" } | 
+    Select-Object ProcessName, Id, UserName
+```
 
 **Test beep manually:**
 ```powershell
 [console]::beep(800, 500)
 ```
 
-**Check Windows Audio service:**
-```powershell
-Get-Service -Name "Audiosrv"
-```
-
-**Check if agent is running in correct session:**
-```powershell
-# Agent should be running as logged-in user, not SYSTEM
-Get-Process | Where-Object { $_.CommandLine -like "*user-notify-agent*" } | Select-Object ProcessName, Id, UserName
-```
-
-### Toast Not Showing
-
-**Check Windows notification settings:**
-- Settings → System → Notifications
-- Ensure "VigyanShaala MDM" notifications are enabled
-
 **Test toast manually:**
 ```powershell
-# Run as logged-in user
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
 
@@ -300,7 +288,7 @@ $template = @"
     <visual>
         <binding template="ToastGeneric">
             <text>Test</text>
-            <text>This is a test notification</text>
+            <text>Manual test notification</text>
         </binding>
     </visual>
 </toast>
@@ -315,6 +303,8 @@ $notifier.Show($toast)
 
 ## Success Criteria
 
+✅ Database migration applied successfully  
+✅ Installer package downloaded and installed  
 ✅ User notification task exists and is enabled  
 ✅ Agent starts automatically at user logon  
 ✅ Agent logs show polling activity  
@@ -323,10 +313,10 @@ $notifier.Show($toast)
 ✅ Notifications are marked as "completed" in database  
 ✅ Logs show successful processing  
 
-## Next Steps After Testing
+## Next Steps
 
 If all tests pass:
-- Deploy to production
+- Deploy to production devices
 - Monitor logs for first few days
 - Collect user feedback
 

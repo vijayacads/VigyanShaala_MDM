@@ -78,19 +78,27 @@ $batteryData = $null
 
 # Primary: osquery battery table (works on osquery v5.12.1+)
 # Battery table columns: percent_remaining, condition, state, charging, charged, etc.
+# Note: Removed WHERE clause to ensure we get battery data even if percent_remaining is NULL
 try {
-    $batteryQuery = "SELECT percent_remaining as percentage, condition as health, state, charging FROM battery WHERE percent_remaining IS NOT NULL;"
+    $batteryQuery = "SELECT percent_remaining as percentage, condition as health, state, charging FROM battery LIMIT 1;"
     $batteryOutput = & $osqueryiPath --json $batteryQuery 2>&1
     $batteryJson = Get-JsonFromOsqueryOutput -Output $batteryOutput
     if ($batteryJson) {
         $batteryArray = $batteryJson | ConvertFrom-Json
         if ($batteryArray -and $batteryArray.Count -gt 0 -and $batteryArray[0]) {
             $batteryData = $batteryArray[0]
-            Write-Host "  [OK] Battery data from osquery" -ForegroundColor Green
+            # If percentage is NULL, try to get it from WMI fallback
+            if ($null -eq $batteryData.percentage -or $batteryData.percentage -eq '') {
+                Write-Host "  [WARN] osquery battery data found but percentage is NULL, trying WMI fallback..." -ForegroundColor Yellow
+                $batteryData = $null  # Will trigger WMI fallback below
+            } else {
+                Write-Host "  [OK] Battery data from osquery (Percentage: $($batteryData.percentage)%)" -ForegroundColor Green
+            }
         }
     }
 } catch {
     # osquery battery table not available, will use WMI fallback
+    Write-Host "  [WARN] osquery battery query failed, will try WMI fallback" -ForegroundColor Yellow
 }
 
 # Fallback: WMI if osquery didn't work (for older osquery versions or compatibility)

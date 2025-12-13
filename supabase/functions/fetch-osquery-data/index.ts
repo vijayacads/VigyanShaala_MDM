@@ -242,9 +242,21 @@ serve(async (req) => {
       // Process battery health
       if (payload.battery_health && Array.isArray(payload.battery_health) && payload.battery_health.length > 0) {
         const battery = payload.battery_health[0]
-        if (battery.percentage !== null && battery.percentage !== undefined) {
+        // Try to get percentage from various possible fields
+        if (battery.percentage !== null && battery.percentage !== undefined && battery.percentage !== '') {
           batteryPercent = parseInt(battery.percentage) || null
+        } else if (battery.percent_remaining !== null && battery.percent_remaining !== undefined && battery.percent_remaining !== '') {
+          // Fallback to percent_remaining if percentage alias wasn't used
+          batteryPercent = parseInt(battery.percent_remaining) || null
         }
+        console.log('Battery data processed:', { 
+          has_battery: true, 
+          percentage: battery.percentage, 
+          percent_remaining: battery.percent_remaining,
+          final_batteryPercent: batteryPercent 
+        })
+      } else {
+        console.log('No battery_health data in payload')
       }
 
       // Process storage usage
