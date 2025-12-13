@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase.config'
+import Login from './components/Login'
 import DeviceMap from './components/DeviceMap'
 import AppInventory from './components/AppInventory'
 import GeofenceAlerts from './components/GeofenceAlerts'
@@ -41,6 +42,48 @@ function App() {
     locationId: null,
     city: ''
   })
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session)
+      setUser(session?.user || null)
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session)
+      setUser(session?.user || null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true)
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setIsAuthenticated(false)
+    setUser(null)
+  }
+
+  // Show loading state while checking authentication
+  if (isAuthenticated === null) {
+    return (
+      <div className="app" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading...</div>
+      </div>
+    )
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />
+  }
 
   return (
     <div className="app">
@@ -56,7 +99,8 @@ function App() {
         />
         <h1>VigyanShaala MDM Dashboard</h1>
         <div className="user-info">
-          <span>Admin Mode</span>
+          <span>{user?.email || 'Admin Mode'}</span>
+          <button onClick={handleLogout} className="logout-button">Logout</button>
         </div>
       </header>
 

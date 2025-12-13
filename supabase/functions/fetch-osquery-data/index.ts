@@ -85,7 +85,7 @@ serve(async (req) => {
           })
           .eq('hostname', device.hostname)
 
-        // Try to match WiFi SSID to location
+        // Try to match WiFi SSID to location for geofencing
         // First, check if device has a location_id assigned
         if (device.location_id) {
           // Get location details
@@ -96,9 +96,21 @@ serve(async (req) => {
             .single()
 
           if (location) {
-            // Use location coordinates for geofence check
-            // Note: WiFi-based location is approximate, so we use the assigned location's coordinates
-            // The WiFi SSID is stored for reference and future location mapping
+            // Check if WiFi SSID matches location's WiFi mappings
+            const { data: wifiMapping } = await supabaseClient
+              .from('location_wifi_mappings')
+              .select('id')
+              .eq('location_id', device.location_id)
+              .eq('wifi_ssid', wifi.ssid)
+              .eq('is_active', true)
+              .single()
+
+            // For WiFi-based geofencing, we use location coordinates
+            // The geofence function will check wifi_ssid_match flag instead of distance
+            const deviceLatitude = parseFloat(location.latitude.toString())
+            const deviceLongitude = parseFloat(location.longitude.toString())
+
+            // Trigger geofence check
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/geofence-alert`, {
               method: 'POST',
               headers: {
@@ -107,8 +119,9 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 device_id: device.hostname,
-                latitude: location.latitude,
-                longitude: location.longitude
+                latitude: deviceLatitude,
+                longitude: deviceLongitude,
+                wifi_ssid_match: !!wifiMapping // Pass whether WiFi matched
               })
             })
           }

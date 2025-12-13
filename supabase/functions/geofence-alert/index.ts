@@ -34,9 +34,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { device_id, latitude, longitude } = await req.json()
+    const { device_id, latitude, longitude, wifi_ssid_match } = await req.json()
 
-    if (!device_id || !latitude || !longitude) {
+    if (!device_id || latitude === undefined || longitude === undefined) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: device_id, latitude, longitude' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -90,9 +90,16 @@ serve(async (req) => {
     )
 
     // Check if device is outside geofence
-    // THIS IS WHERE THE DISTANCE CHECK HAPPENS:
-    // If distance > radius_meters, device is outside the allowed boundary
-    const isOutside = distance > radius
+    // For WiFi-based geofencing: if wifi_ssid_match is false, device is outside
+    // For GPS-based geofencing: if distance > radius_meters, device is outside
+    let isOutside: boolean
+    if (wifi_ssid_match !== undefined) {
+      // WiFi-based geofencing: check if WiFi SSID matched the location
+      isOutside = !wifi_ssid_match
+    } else {
+      // GPS-based geofencing: check distance
+      isOutside = distance > radius
+    }
 
     // Update device location
     await supabaseClient
@@ -121,10 +128,10 @@ serve(async (req) => {
           .insert({
             device_id: device_id, // hostname
             location_id: location.id,
-            violation_type: 'outside_bounds',
+            violation_type: wifi_ssid_match === false ? 'wifi_mismatch' : 'outside_bounds',
             latitude: latitude,
             longitude: longitude,
-            distance_meters: Math.round(distance)
+            distance_meters: wifi_ssid_match === false ? null : Math.round(distance)
           })
 
         if (alertError) {
@@ -138,13 +145,18 @@ serve(async (req) => {
           .eq('hostname', device_id)
       }
 
+      const violationMessage = wifi_ssid_match === false
+        ? `Device WiFi SSID does not match ${location.name} location (WiFi-based geofence violation)`
+        : `Device is ${Math.round(distance)}m outside ${location.name} geofence (radius: ${radius}m)`
+
       return new Response(
         JSON.stringify({
           status: 'violation',
-          message: `Device is ${Math.round(distance)}m outside ${location.name} geofence (radius: ${radius}m)`,
-          distance_meters: Math.round(distance),
+          message: violationMessage,
+          distance_meters: wifi_ssid_match === false ? null : Math.round(distance),
           radius_meters: radius,
-          location_name: location.name
+          location_name: location.name,
+          wifi_based: wifi_ssid_match !== undefined
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
