@@ -165,7 +165,83 @@ foreach ($shortcut in $desktopShortcuts) {
     }
 }
 
-# Step 6: Remove environment variables (optional - commented out to preserve for reinstall)
+# Step 6: Remove website blocklist from hosts file and registry
+Write-Host "Removing website blocklist..." -ForegroundColor Yellow
+try {
+    $hostsFile = "$env:SystemRoot\System32\drivers\etc\hosts"
+    $mdmMarkerStart = "# VigyanShaala-MDM Blocklist Start"
+    $mdmMarkerEnd = "# VigyanShaala-MDM Blocklist End"
+    
+    if (Test-Path $hostsFile) {
+        $allLines = Get-Content $hostsFile -ErrorAction SilentlyContinue
+        $cleanedLines = @()
+        $insideMdmSection = $false
+        $foundMdmSection = $false
+        
+        foreach ($line in $allLines) {
+            if ($line -eq $mdmMarkerStart) {
+                $insideMdmSection = $true
+                $foundMdmSection = $true
+                continue
+            }
+            if ($line -eq $mdmMarkerEnd) {
+                $insideMdmSection = $false
+                continue
+            }
+            if (-not $insideMdmSection) {
+                $cleanedLines += $line
+            }
+        }
+        
+        if ($foundMdmSection) {
+            $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force
+            Write-Host "Removed MDM blocklist entries from hosts file" -ForegroundColor Green
+            
+            # Flush DNS cache
+            Write-Host "Flushing DNS cache..." -ForegroundColor Cyan
+            ipconfig /flushdns | Out-Null
+            Write-Host "DNS cache flushed" -ForegroundColor Green
+        } else {
+            Write-Host "No MDM blocklist entries found in hosts file" -ForegroundColor Gray
+        }
+    }
+    
+    # Remove Chrome registry policy
+    $chromePolicyPath = "HKLM:\SOFTWARE\Policies\Google\Chrome"
+    if (Test-Path $chromePolicyPath) {
+        try {
+            $urlBlocklist = Get-ItemProperty -Path $chromePolicyPath -Name "URLBlocklist" -ErrorAction SilentlyContinue
+            if ($urlBlocklist) {
+                Remove-ItemProperty -Path $chromePolicyPath -Name "URLBlocklist" -ErrorAction Stop
+                Write-Host "Removed Chrome URLBlocklist policy" -ForegroundColor Green
+            } else {
+                Write-Host "No Chrome URLBlocklist policy found" -ForegroundColor Gray
+            }
+        } catch {
+            Write-Warning "Could not remove Chrome policy: $_"
+        }
+    }
+    
+    # Remove Edge registry policy
+    $edgePolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+    if (Test-Path $edgePolicyPath) {
+        try {
+            $urlBlocklist = Get-ItemProperty -Path $edgePolicyPath -Name "URLBlocklist" -ErrorAction SilentlyContinue
+            if ($urlBlocklist) {
+                Remove-ItemProperty -Path $edgePolicyPath -Name "URLBlocklist" -ErrorAction Stop
+                Write-Host "Removed Edge URLBlocklist policy" -ForegroundColor Green
+            } else {
+                Write-Host "No Edge URLBlocklist policy found" -ForegroundColor Gray
+            }
+        } catch {
+            Write-Warning "Could not remove Edge policy: $_"
+        }
+    }
+} catch {
+    Write-Warning "Could not remove website blocklist: $_"
+}
+
+# Step 7: Remove environment variables (optional - commented out to preserve for reinstall)
 # Uncomment if you want to remove environment variables
 <#
 Write-Host "Removing environment variables..." -ForegroundColor Yellow
@@ -179,7 +255,7 @@ try {
 }
 #>
 
-# Step 7: Remove device from Supabase (if credentials available)
+# Step 8: Remove device from Supabase (if credentials available)
 if ($SupabaseUrl -and $SupabaseAnonKey) {
     Write-Host ""
     Write-Host "Removing device from Supabase..." -ForegroundColor Yellow
