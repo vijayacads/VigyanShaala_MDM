@@ -51,15 +51,40 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
 
   async function fetchDevices() {
     try {
-      const { data, error } = await supabase
+      // Try with all columns first
+      let { data, error } = await supabase
         .from('devices')
         .select('hostname, device_inventory_code, device_imei_number, device_make, host_location, city_town_village, role, issue_date, wifi_ssid, latitude, longitude, os_version, assigned_teacher, assigned_student_leader')
         .order('hostname', { ascending: true })
+
+      // If columns don't exist, use basic columns only
+      if (error && error.code === '42703') {
+        const result = await supabase
+          .from('devices')
+          .select('hostname, device_inventory_code, host_location, city_town_village, latitude, longitude, os_version, assigned_teacher, assigned_student_leader')
+          .order('hostname', { ascending: true })
+        if (result.error) {
+          error = result.error
+        } else {
+          // Map data to include missing columns as null
+          data = (result.data || []).map((d: any) => ({
+            ...d,
+            device_imei_number: null,
+            device_make: null,
+            role: null,
+            issue_date: null,
+            wifi_ssid: null
+          }))
+          error = null
+        }
+      }
 
       if (error) throw error
       setDevices(data || [])
     } catch (error: any) {
       console.error('Error fetching devices:', error)
+      // Set empty array on error to prevent UI breakage
+      setDevices([])
     }
   }
 

@@ -98,6 +98,7 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
     try {
       setLoading(true)
       
+      // First try with all columns (new schema)
       let query = supabase
         .from('devices')
         .select(`
@@ -127,7 +128,38 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
         query = query.eq('location_id', locationId)
       }
 
-      const { data, error } = await query
+      let { data, error } = await query
+
+      // If error due to missing columns, try with basic columns only
+      if (error && error.code === '42703') {
+        query = supabase
+          .from('devices')
+          .select(`
+            hostname,
+            device_inventory_code,
+            compliance_status,
+            last_seen,
+            os_version,
+            location_id,
+            host_location,
+            city_town_village,
+            laptop_model,
+            latitude,
+            longitude,
+            serial_number,
+            assigned_teacher,
+            assigned_student_leader,
+            locations(name)
+          `)
+
+        if (locationId) {
+          query = query.eq('location_id', locationId)
+        }
+
+        const result = await query
+        data = result.data
+        error = result.error
+      }
 
       if (error) throw error
 
@@ -157,11 +189,11 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
           serial_number: d.serial_number,
           assigned_teacher: d.assigned_teacher,
           assigned_student_leader: d.assigned_student_leader,
-          device_imei_number: d.device_imei_number,
-          device_make: d.device_make,
-          role: d.role,
-          issue_date: d.issue_date,
-          wifi_ssid: d.wifi_ssid,
+          device_imei_number: d.device_imei_number || null,
+          device_make: d.device_make || null,
+          role: d.role || null,
+          issue_date: d.issue_date || null,
+          wifi_ssid: d.wifi_ssid || null,
           performance_status: health?.performance_status || 'unknown',
           device_status: health?.device_status || 'unknown',
           last_login_date: health?.last_login_date || null,

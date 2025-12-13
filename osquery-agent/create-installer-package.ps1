@@ -32,6 +32,7 @@ $filesToCopy = @(
     "sync-software-blocklist-scheduled.ps1",
     "execute-commands.ps1",
     "chat-interface.ps1",
+    "VigyanShaala_Chat.bat",
     "uninstall-osquery.ps1"
 )
 
@@ -56,7 +57,6 @@ echo.
 set SUPABASE_URL=$SupabaseUrl
 set SUPABASE_KEY=$SupabaseAnonKey
 
-cd osquery-agent
 powershell.exe -ExecutionPolicy Bypass -Command "& '%~dp0INSTALL.ps1' -SupabaseUrl '%SUPABASE_URL%' -SupabaseKey '%SUPABASE_KEY%'"
 
 pause

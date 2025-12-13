@@ -45,18 +45,16 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="header-left">
-          <img 
-            src="/logo.png" 
-            alt="VigyanShaala Logo" 
-            className="header-logo"
-            onError={(e) => {
-              // Hide logo if file doesn't exist
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-          <h1>VigyanShaala MDM Dashboard</h1>
-        </div>
+        <img 
+          src="/Logo.png" 
+          alt="VigyanShaala Logo" 
+          className="header-logo"
+          onError={(e) => {
+            // Hide logo if file doesn't exist
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        <h1>VigyanShaala MDM Dashboard</h1>
         <div className="user-info">
           <span>Admin Mode</span>
         </div>

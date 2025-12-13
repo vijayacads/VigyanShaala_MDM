@@ -240,10 +240,29 @@ if ($SupabaseUrl -and $SupabaseKey) {
         Write-Warning "Could not create command processor task: $_"
     }
     
-    # Copy chat interface script (optional, for manual use)
+    # Copy chat interface script and launcher
     if (Test-Path "chat-interface.ps1") {
         Copy-Item "chat-interface.ps1" "$InstallDir\chat-interface.ps1" -Force
-        Write-Host "Chat interface script copied (for manual use)" -ForegroundColor Green
+        Write-Host "Chat interface script copied" -ForegroundColor Green
+    }
+    
+    # Copy chat launcher batch file
+    if (Test-Path "VigyanShaala_Chat.bat") {
+        Copy-Item "VigyanShaala_Chat.bat" "$InstallDir\VigyanShaala_Chat.bat" -Force
+        Write-Host "Chat launcher copied" -ForegroundColor Green
+        
+        # Create desktop shortcut
+        try {
+            $WshShell = New-Object -ComObject WScript.Shell
+            $Shortcut = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\VigyanShaala Chat.lnk")
+            $Shortcut.TargetPath = "$InstallDir\VigyanShaala_Chat.bat"
+            $Shortcut.WorkingDirectory = $InstallDir
+            $Shortcut.Description = "VigyanShaala MDM Chat Support"
+            $Shortcut.Save()
+            Write-Host "Desktop shortcut created: VigyanShaala Chat" -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not create desktop shortcut: $_"
+        }
     }
 }
 

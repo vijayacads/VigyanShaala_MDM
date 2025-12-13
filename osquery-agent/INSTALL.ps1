@@ -28,10 +28,10 @@ Write-Host ""
 
 # Get script directory
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $scriptDir
+$osqueryAgentDir = Join-Path $scriptDir "osquery-agent"
 
-# Check if osquery MSI exists
-$osqueryMsi = Get-ChildItem -Path $scriptDir -Filter "osquery-*.msi" | Select-Object -First 1
+# Check if osquery MSI exists (look in both root and osquery-agent folder)
+$osqueryMsi = Get-ChildItem -Path $scriptDir -Filter "osquery-*.msi" -Recurse | Select-Object -First 1
 
 if (-not $osqueryMsi) {
     Write-Host "ERROR: osquery MSI installer not found!" -ForegroundColor Red
@@ -44,7 +44,7 @@ if (-not $osqueryMsi) {
     if ($response -eq 'Y' -or $response -eq 'y') {
         Write-Host "Downloading osquery..." -ForegroundColor Yellow
         $downloadUrl = "https://pkg.osquery.io/windows/osquery-5.11.0.msi"
-        $osqueryMsiPath = Join-Path $scriptDir "osquery-5.11.0.msi"
+        $osqueryMsiPath = Join-Path $osqueryAgentDir "osquery-5.11.0.msi"
         try {
             Invoke-WebRequest -Uri $downloadUrl -OutFile $osqueryMsiPath -UseBasicParsing
             $osqueryMsi = Get-Item $osqueryMsiPath
@@ -69,10 +69,20 @@ Write-Host "Installing osquery and configuring device..." -ForegroundColor Cyan
 Write-Host ""
 
 try {
-    & "$scriptDir\install-osquery.ps1" `
+    # If MSI is not in osquery-agent folder, copy it there
+    $targetMsiPath = Join-Path $osqueryAgentDir $osqueryMsi.Name
+    if ($osqueryMsi.FullName -ne $targetMsiPath) {
+        Copy-Item $osqueryMsi.FullName $targetMsiPath -Force
+        Write-Host "Copied osquery installer to osquery-agent folder" -ForegroundColor Gray
+    }
+    
+    # Change to osquery-agent directory and run install script
+    Push-Location $osqueryAgentDir
+    & ".\install-osquery.ps1" `
         -OsqueryMsi $osqueryMsi.Name `
         -SupabaseUrl $SupabaseUrl `
         -SupabaseKey $SupabaseKey
+    Pop-Location
     
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Green
