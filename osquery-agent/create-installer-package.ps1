@@ -31,7 +31,8 @@ $filesToCopy = @(
     "sync-blocklist-scheduled.ps1",
     "sync-software-blocklist-scheduled.ps1",
     "execute-commands.ps1",
-    "chat-interface.ps1"
+    "chat-interface.ps1",
+    "uninstall-osquery.ps1"
 )
 
 foreach ($file in $filesToCopy) {
@@ -91,6 +92,39 @@ if %errorLevel% == 0 (
 
 Set-Content -Path "$OutputPath\RUN-AS-ADMIN.bat" -Value $launcherContent
 Write-Host "Created: RUN-AS-ADMIN.bat" -ForegroundColor Green
+
+# Create UNINSTALL.bat
+$uninstallBatContent = @"
+@echo off
+REM Uninstaller for VigyanShaala MDM osquery Agent
+REM Run as Administrator
+
+echo ========================================
+echo VigyanShaala MDM - Uninstaller
+echo ========================================
+echo.
+
+REM Check for administrator privileges
+net session >nul 2>&1
+if %errorLevel% == 0 (
+    echo Running uninstaller with Administrator privileges...
+    echo.
+    cd osquery-agent
+    powershell.exe -ExecutionPolicy Bypass -File "%~dp0uninstall-osquery.ps1"
+) else (
+    echo.
+    echo ERROR: Administrator privileges required!
+    echo.
+    echo Please right-click on this file and select "Run as Administrator"
+    echo.
+    pause
+    exit /b 1
+)
+pause
+"@
+
+Set-Content -Path "$OutputPath\UNINSTALL.bat" -Value $uninstallBatContent
+Write-Host "Created: UNINSTALL.bat" -ForegroundColor Green
 
 # Create ZIP file
 $zipPath = "$OutputPath.zip"
