@@ -123,7 +123,7 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
       if (error) throw error
 
       // Refresh history
-      const firstDevice = Array.from(selectedDevices)[0]
+      const firstDevice = Array.from(selectedDevices)[0] as string | undefined
       if (firstDevice) {
         await fetchCommandHistory(firstDevice.trim().toUpperCase())
       }
@@ -167,7 +167,7 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
       if (error) throw error
 
       // Refresh history
-      const firstDevice = Array.from(selectedDevices)[0]
+      const firstDevice = Array.from(selectedDevices)[0] as string | undefined
       if (firstDevice) {
         await fetchCommandHistory(firstDevice.trim().toUpperCase())
       }
