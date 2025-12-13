@@ -197,10 +197,17 @@ try {
             $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force
             Write-Host "Removed MDM blocklist entries from hosts file" -ForegroundColor Green
             
-            # Flush DNS cache
+            # Flush DNS cache multiple times to ensure it's cleared
             Write-Host "Flushing DNS cache..." -ForegroundColor Cyan
             ipconfig /flushdns | Out-Null
+            Start-Sleep -Seconds 1
+            ipconfig /flushdns | Out-Null
             Write-Host "DNS cache flushed" -ForegroundColor Green
+            
+            # Also clear browser DNS cache by restarting DNS client service
+            Write-Host "Restarting DNS client service..." -ForegroundColor Cyan
+            Restart-Service -Name "Dnscache" -Force -ErrorAction SilentlyContinue
+            Write-Host "DNS client service restarted" -ForegroundColor Green
         } else {
             Write-Host "No MDM blocklist entries found in hosts file" -ForegroundColor Gray
         }
@@ -216,6 +223,13 @@ try {
                 Write-Host "Removed Chrome URLBlocklist policy" -ForegroundColor Green
             } else {
                 Write-Host "No Chrome URLBlocklist policy found" -ForegroundColor Gray
+            }
+            
+            # Also check for and remove URLAllowlist if it exists (sometimes used together)
+            $urlAllowlist = Get-ItemProperty -Path $chromePolicyPath -Name "URLAllowlist" -ErrorAction SilentlyContinue
+            if ($urlAllowlist) {
+                Remove-ItemProperty -Path $chromePolicyPath -Name "URLAllowlist" -ErrorAction SilentlyContinue
+                Write-Host "Removed Chrome URLAllowlist policy" -ForegroundColor Green
             }
         } catch {
             Write-Warning "Could not remove Chrome policy: $_"
@@ -233,10 +247,37 @@ try {
             } else {
                 Write-Host "No Edge URLBlocklist policy found" -ForegroundColor Gray
             }
+            
+            # Also check for and remove URLAllowlist if it exists
+            $urlAllowlist = Get-ItemProperty -Path $edgePolicyPath -Name "URLAllowlist" -ErrorAction SilentlyContinue
+            if ($urlAllowlist) {
+                Remove-ItemProperty -Path $edgePolicyPath -Name "URLAllowlist" -ErrorAction SilentlyContinue
+                Write-Host "Removed Edge URLAllowlist policy" -ForegroundColor Green
+            }
         } catch {
             Write-Warning "Could not remove Edge policy: $_"
         }
     }
+    
+    # Check for Firefox policies (if any were added)
+    $firefoxPolicyPath = "HKLM:\SOFTWARE\Policies\Mozilla\Firefox"
+    if (Test-Path $firefoxPolicyPath) {
+        try {
+            $blocklist = Get-ItemProperty -Path $firefoxPolicyPath -Name "BlockAboutConfig" -ErrorAction SilentlyContinue
+            if ($blocklist) {
+                Remove-ItemProperty -Path $firefoxPolicyPath -Name "BlockAboutConfig" -ErrorAction SilentlyContinue
+                Write-Host "Removed Firefox policy restrictions" -ForegroundColor Green
+            }
+        } catch {
+            # Firefox policies are less common, ignore errors
+        }
+    }
+    
+    Write-Host ""
+    Write-Host "IMPORTANT: Please restart your browser(s) for changes to take full effect!" -ForegroundColor Yellow
+    Write-Host "  - Close all Chrome windows and reopen" -ForegroundColor White
+    Write-Host "  - Close all Edge windows and reopen" -ForegroundColor White
+    Write-Host "  - If still blocked, clear browser cache: Settings > Privacy > Clear browsing data" -ForegroundColor White
 } catch {
     Write-Warning "Could not remove website blocklist: $_"
 }
@@ -293,22 +334,19 @@ if ($SupabaseUrl -and $SupabaseAnonKey) {
             "Authorization" = "Bearer $SupabaseAnonKey"
         }
         
-        # First, find the device
-        $response = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices?hostname=eq.$hostname&select=id" `
-            -Method GET -Headers $headers
+        # Delete device using hostname as primary key (devices table uses hostname as PK, not id)
+        $deleteUri = "$SupabaseUrl/rest/v1/devices?hostname=eq.$hostname"
+        $response = Invoke-RestMethod -Uri $deleteUri -Method DELETE -Headers $headers
         
-        if ($response -and $response.Count -gt 0) {
-            $deviceId = $response[0].id
-            # Delete device
-            Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices?id=eq.$deviceId" `
-                -Method DELETE -Headers $headers | Out-Null
-            Write-Host "Device removed from Supabase (ID: $deviceId)" -ForegroundColor Green
-        } else {
-            Write-Host "Device not found in Supabase" -ForegroundColor Gray
-        }
+        Write-Host "Device removed from Supabase (hostname: $hostname)" -ForegroundColor Green
     } catch {
-        Write-Warning "Could not remove device from Supabase: $_"
-        Write-Host "You may need to remove it manually from the dashboard" -ForegroundColor Yellow
+        # Check if it's a 404 (device not found) or actual error
+        if ($_.Exception.Response.StatusCode -eq 404) {
+            Write-Host "Device not found in Supabase (may have been already removed)" -ForegroundColor Gray
+        } else {
+            Write-Warning "Could not remove device from Supabase: $_"
+            Write-Host "You may need to remove it manually from the dashboard" -ForegroundColor Yellow
+        }
     }
 } else {
     Write-Host ""
