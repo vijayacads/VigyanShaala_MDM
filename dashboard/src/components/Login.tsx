@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { supabase } from '../supabase.config'
+import { useState, FormEvent } from 'react'
+import { supabase } from '../../supabase.config'
 import './Login.css'
 
 interface LoginProps {
@@ -12,7 +12,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)

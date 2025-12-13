@@ -359,7 +359,7 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
                       </span>
                     </td>
                     <td>{new Date(cmd.created_at).toLocaleString()}</td>
-                    <td>{cmd.completed_at ? new Date(cmd.completed_at).toLocaleString() : '-'}</td>
+                    <td>{cmd.executed_at ? new Date(cmd.executed_at).toLocaleString() : '-'}</td>
                   </tr>
                 ))}
               </tbody>
