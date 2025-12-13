@@ -229,7 +229,7 @@ if ($SupabaseUrl -and $SupabaseKey) {
     $commandTaskName = "VigyanShaala-MDM-CommandProcessor"
     $commandTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
         -Argument "-ExecutionPolicy Bypass -File `"$commandScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`""
-    $commandTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Seconds 30) -RepetitionDuration (New-TimeSpan -Days 365)
+    $commandTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 365)
     $commandTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
     
     try {

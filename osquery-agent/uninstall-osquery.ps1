@@ -241,9 +241,34 @@ try {
     Write-Warning "Could not remove website blocklist: $_"
 }
 
-# Step 7: Remove environment variables (optional - commented out to preserve for reinstall)
-# Uncomment if you want to remove environment variables
-<#
+# Step 6b: Remove registry keys that may have been added by prevent-uninstall.ps1 (if it was run)
+# Only remove the specific keys we may have added, not the entire registry paths
+Write-Host "Checking for additional registry keys..." -ForegroundColor Yellow
+try {
+    $installerPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer"
+    if (Test-Path $installerPolicyPath) {
+        # Only remove the specific values we may have added, not the entire key
+        $disableUserInstalls = Get-ItemProperty -Path $installerPolicyPath -Name "DisableUserInstalls" -ErrorAction SilentlyContinue
+        $disableMSI = Get-ItemProperty -Path $installerPolicyPath -Name "DisableMSI" -ErrorAction SilentlyContinue
+        
+        if ($disableUserInstalls) {
+            Remove-ItemProperty -Path $installerPolicyPath -Name "DisableUserInstalls" -ErrorAction SilentlyContinue
+            Write-Host "Removed DisableUserInstalls registry value" -ForegroundColor Green
+        }
+        
+        if ($disableMSI) {
+            Remove-ItemProperty -Path $installerPolicyPath -Name "DisableMSI" -ErrorAction SilentlyContinue
+            Write-Host "Removed DisableMSI registry value" -ForegroundColor Green
+        }
+        
+        # If the key is now empty (only had our values), we could remove it, but it's safer to leave it
+        # as other software might use it
+    }
+} catch {
+    Write-Warning "Could not check/remove additional registry keys: $_"
+}
+
+# Step 7: Remove environment variables
 Write-Host "Removing environment variables..." -ForegroundColor Yellow
 try {
     [Environment]::SetEnvironmentVariable("SUPABASE_URL", $null, "Machine")
@@ -253,7 +278,6 @@ try {
 } catch {
     Write-Warning "Could not remove environment variables: $_"
 }
-#>
 
 # Step 8: Remove device from Supabase (if credentials available)
 if ($SupabaseUrl -and $SupabaseAnonKey) {
@@ -298,9 +322,6 @@ Write-Host "Uninstallation Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "osquery agent has been removed from this computer." -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Note: Environment variables were kept (in case you want to reinstall)." -ForegroundColor Gray
-Write-Host "      To remove them, edit this script and uncomment the environment variable removal section." -ForegroundColor Gray
 Write-Host ""
 
 pause
