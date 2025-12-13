@@ -113,7 +113,7 @@ function Show-DeviceEnrollmentForm {
     
     $form = New-Object System.Windows.Forms.Form
     $form.Text = "Device Enrollment - VigyanShaala MDM"
-    $form.Size = New-Object System.Drawing.Size(600, 750)
+    $form.Size = New-Object System.Drawing.Size(600, 850)
     $form.StartPosition = "CenterScreen"
     $form.FormBorderStyle = "FixedDialog"
     $form.MaximizeBox = $false
@@ -284,6 +284,97 @@ function Show-DeviceEnrollmentForm {
     $form.Controls.Add($txtAssignedStudentLeader)
     $yPos += $spacing
     
+    # Role
+    $label12 = New-Object System.Windows.Forms.Label
+    $label12.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label12.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label12.Text = "Role (Device Purpose):"
+    $form.Controls.Add($label12)
+    
+    $txtRole = New-Object System.Windows.Forms.TextBox
+    $txtRole.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtRole.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $form.Controls.Add($txtRole)
+    $yPos += $spacing
+    
+    # Issue Date
+    $label13 = New-Object System.Windows.Forms.Label
+    $label13.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label13.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label13.Text = "Issue Date (YYYY-MM-DD):"
+    $form.Controls.Add($label13)
+    
+    $txtIssueDate = New-Object System.Windows.Forms.TextBox
+    $txtIssueDate.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtIssueDate.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $form.Controls.Add($txtIssueDate)
+    $yPos += $spacing
+    
+    # Separator line
+    $separator = New-Object System.Windows.Forms.Label
+    $separator.Location = New-Object System.Drawing.Point(20, $yPos)
+    $separator.Size = New-Object System.Drawing.Size(540, 2)
+    $separator.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $form.Controls.Add($separator)
+    $yPos += 15
+    
+    # Auto-detected fields section
+    $labelAuto = New-Object System.Windows.Forms.Label
+    $labelAuto.Location = New-Object System.Drawing.Point(20, $yPos)
+    $labelAuto.Size = New-Object System.Drawing.Size(540, $labelHeight)
+    $labelAuto.Text = "Auto-Detected Information (Read-Only):"
+    $labelAuto.Font = New-Object System.Drawing.Font("Arial", 9, [System.Drawing.FontStyle]::Bold)
+    $form.Controls.Add($labelAuto)
+    $yPos += $spacing
+    
+    # Device IMEI Number (read-only)
+    $label14 = New-Object System.Windows.Forms.Label
+    $label14.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label14.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label14.Text = "IMEI Number:"
+    $form.Controls.Add($label14)
+    
+    $txtIMEI = New-Object System.Windows.Forms.TextBox
+    $txtIMEI.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtIMEI.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $txtIMEI.Text = if ($deviceInfo.device_imei_number) { $deviceInfo.device_imei_number } else { "Not detected" }
+    $txtIMEI.ReadOnly = $true
+    $txtIMEI.BackColor = [System.Drawing.Color]::LightGray
+    $form.Controls.Add($txtIMEI)
+    $yPos += $spacing
+    
+    # Device Make (read-only)
+    $label15 = New-Object System.Windows.Forms.Label
+    $label15.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label15.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label15.Text = "Device Make:"
+    $form.Controls.Add($label15)
+    
+    $txtDeviceMake = New-Object System.Windows.Forms.TextBox
+    $txtDeviceMake.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtDeviceMake.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $txtDeviceMake.Text = if ($deviceInfo.device_make) { $deviceInfo.device_make } else { "Not detected" }
+    $txtDeviceMake.ReadOnly = $true
+    $txtDeviceMake.BackColor = [System.Drawing.Color]::LightGray
+    $form.Controls.Add($txtDeviceMake)
+    $yPos += $spacing
+    
+    # WiFi SSID (read-only)
+    $label16 = New-Object System.Windows.Forms.Label
+    $label16.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label16.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label16.Text = "WiFi SSID:"
+    $form.Controls.Add($label16)
+    
+    $txtWiFiSSID = New-Object System.Windows.Forms.TextBox
+    $txtWiFiSSID.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtWiFiSSID.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $txtWiFiSSID.Text = if ($deviceInfo.wifi_ssid) { $deviceInfo.wifi_ssid } else { "Not connected" }
+    $txtWiFiSSID.ReadOnly = $true
+    $txtWiFiSSID.BackColor = [System.Drawing.Color]::LightGray
+    $form.Controls.Add($txtWiFiSSID)
+    $yPos += $spacing
+    
     $yPos += 10
     
     # Buttons
@@ -356,6 +447,8 @@ function Show-DeviceEnrollmentForm {
             longitude = [double]$txtLongitude.Text
             assigned_teacher = if ([string]::IsNullOrWhiteSpace($txtAssignedTeacher.Text)) { $null } else { $txtAssignedTeacher.Text.Trim() }
             assigned_student_leader = if ([string]::IsNullOrWhiteSpace($txtAssignedStudentLeader.Text)) { $null } else { $txtAssignedStudentLeader.Text.Trim() }
+            role = if ([string]::IsNullOrWhiteSpace($txtRole.Text)) { $null } else { $txtRole.Text.Trim() }
+            issue_date = if ([string]::IsNullOrWhiteSpace($txtIssueDate.Text)) { $null } else { $txtIssueDate.Text.Trim() }
             wifi_ssid = $deviceInfo.wifi_ssid
         }
         
@@ -405,6 +498,10 @@ function Register-DeviceInSupabase {
         latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }
         longitude = if ($deviceData.longitude) { [double]$deviceData.longitude } else { $null }
         os_version = if ([string]::IsNullOrWhiteSpace($deviceData.os_version)) { $null } else { $deviceData.os_version }
+        assigned_teacher = if ([string]::IsNullOrWhiteSpace($deviceData.assigned_teacher)) { $null } else { $deviceData.assigned_teacher }
+        assigned_student_leader = if ([string]::IsNullOrWhiteSpace($deviceData.assigned_student_leader)) { $null } else { $deviceData.assigned_student_leader }
+        role = if ([string]::IsNullOrWhiteSpace($deviceData.role)) { $null } else { $deviceData.role }
+        issue_date = if ([string]::IsNullOrWhiteSpace($deviceData.issue_date)) { $null } else { $deviceData.issue_date }
         wifi_ssid = if ([string]::IsNullOrWhiteSpace($deviceData.wifi_ssid)) { $null } else { $deviceData.wifi_ssid }
         compliance_status = "unknown"
         last_seen = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
