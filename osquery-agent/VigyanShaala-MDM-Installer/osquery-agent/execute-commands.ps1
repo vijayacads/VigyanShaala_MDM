@@ -54,35 +54,53 @@ function Clear-DeviceCache {
     }
 }
 
-# Function to execute buzz command using Windows Audio API
+# Function to execute buzz command - runs in user session
 function Buzz-Device {
     param([int]$Duration = 5)
     
     Write-Host "Buzzing device for $Duration seconds..." -ForegroundColor Yellow
     try {
-        # Use Windows kernel32 Beep API for system beep sound
-        Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class AudioBeep {
-    [DllImport("kernel32.dll")]
-    public static extern bool Beep(int frequency, int duration);
-}
-"@
-        
-        $endTime = (Get-Date).AddSeconds($Duration)
-        $beepCount = 0
-        while ((Get-Date) -lt $endTime) {
-            try {
-                [AudioBeep]::Beep(800, 500) | Out-Null
-                $beepCount++
-            } catch {
-                # If Beep fails, try alternative method
-                [console]::beep(800, 500)
-            }
-            Start-Sleep -Milliseconds 500
+        # Get logged-in user
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found for buzz command"
+            return $false
         }
-        Write-Host "Buzzed $beepCount times" -ForegroundColor Green
+        
+        # Create temporary script to run in user session
+        $tempScript = "$env:TEMP\buzz-$(Get-Random).ps1"
+        $durationMs = $Duration * 1000
+        @"
+`$endTime = (Get-Date).AddMilliseconds($durationMs)
+while ((Get-Date) -lt `$endTime) {
+    [console]::beep(800, 500)
+    Start-Sleep -Milliseconds 500
+}
+"@ | Out-File $tempScript -Encoding UTF8
+        
+        # Create one-time scheduled task to run as logged-in user
+        $taskName = "VigyanShaala-Buzz-$(Get-Random)"
+        $action = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+            -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$tempScript`""
+        $principal = New-ScheduledTaskPrincipal -UserId $loggedInUser `
+            -LogonType Interactive -RunLevel Limited
+        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(1)
+        $settings = New-ScheduledTaskSettingsSet `
+            -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+            -DeleteExpiredTaskAfter (New-TimeSpan -Seconds 30) `
+            -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
+        
+        Register-ScheduledTask -TaskName $taskName -Action $action `
+            -Principal $principal -Trigger $trigger -Settings $settings -Force | Out-Null
+        
+        # Wait for task to complete
+        Start-Sleep -Seconds ($Duration + 3)
+        
+        # Cleanup
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
+        
+        Write-Host "Buzz command executed in user session" -ForegroundColor Green
         return $true
     } catch {
         Write-Error "Failed to buzz device: $_"
@@ -90,20 +108,29 @@ public class AudioBeep {
     }
 }
 
-# Function to show Windows Toast notification
+# Function to show Windows Toast notification - runs in user session
 function Show-ToastNotification {
     param([string]$Title, [string]$Message)
     
     try {
-        # Load Windows Runtime assemblies for Toast notifications
-        [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-        [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+        # Get logged-in user
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, using msg.exe fallback"
+            msg.exe * "$Title - $Message" 2>$null
+            return $true
+        }
         
-        # Escape XML special characters
+        # Create temporary script to show toast in user session
+        $tempScript = "$env:TEMP\toast-$(Get-Random).ps1"
         $escapedTitle = $Title -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;' -replace "'", '&apos;'
         $escapedMessage = $Message -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;' -replace "'", '&apos;'
         
-        $template = @"
+        @"
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+
+`$template = @"
 <toast>
     <visual>
         <binding template="ToastGeneric">
@@ -114,16 +141,43 @@ function Show-ToastNotification {
     <audio src="ms-winsoundevent:Notification.Default" />
 </toast>
 "@
+
+`$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+`$xml.LoadXml(`$template)
+`$toast = [Windows.UI.Notifications.ToastNotification]::new(`$xml)
+`$toast.ExpirationTime = [DateTimeOffset]::Now.AddMinutes(5)
+`$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("VigyanShaala MDM")
+`$notifier.Show(`$toast)
+"@ | Out-File $tempScript -Encoding UTF8
         
-        $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-        $xml.LoadXml($template)
-        $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-        $toast.ExpirationTime = [DateTimeOffset]::Now.AddMinutes(5)
-        $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("VigyanShaala MDM")
-        $notifier.Show($toast)
+        # Create one-time scheduled task to run as logged-in user
+        $taskName = "VigyanShaala-Toast-$(Get-Random)"
+        $action = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+            -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$tempScript`""
+        $principal = New-ScheduledTaskPrincipal -UserId $loggedInUser `
+            -LogonType Interactive -RunLevel Limited
+        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(1)
+        $settings = New-ScheduledTaskSettingsSet `
+            -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+            -DeleteExpiredTaskAfter (New-TimeSpan -Seconds 30) `
+            -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
+        
+        Register-ScheduledTask -TaskName $taskName -Action $action `
+            -Principal $principal -Trigger $trigger -Settings $settings -Force | Out-Null
+        
+        # Wait a bit then cleanup
+        Start-Sleep -Seconds 3
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
+        
+        Write-Host "Toast notification sent to user session" -ForegroundColor Green
         return $true
     } catch {
         Write-Warning "Toast notification failed: $_"
+        # Fallback to msg.exe (works from SYSTEM)
+        try {
+            msg.exe * "$Title - $Message" 2>$null
+        } catch {}
         return $false
     }
 }
