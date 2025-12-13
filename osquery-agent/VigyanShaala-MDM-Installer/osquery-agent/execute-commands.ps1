@@ -59,66 +59,59 @@ function Clear-DeviceCache {
     }
 }
 
-# Function to execute buzz command - runs in user session
+# Function to queue buzz command for user-session agent
 function Buzz-Device {
     param([int]$Duration = 5)
     
-    Write-Host "Buzzing device for $Duration seconds..." -ForegroundColor Yellow
+    Write-Host "Queueing buzz command for user-session agent..." -ForegroundColor Yellow
     try {
-        # Get logged-in user
+        # Get logged-in user (normalize to match user agent format)
         $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
         if (-not $loggedInUser) {
             Write-Warning "No logged-in user found for buzz command"
             return $false
         }
         
-        # Create temporary script to run in user session
-        $tempScript = "$env:TEMP\buzz-$(Get-Random).ps1"
-        $durationMs = $Duration * 1000
-        @"
-`$endTime = (Get-Date).AddMilliseconds($durationMs)
-while ((Get-Date) -lt `$endTime) {
-    [console]::beep(800, 500)
-    Start-Sleep -Milliseconds 500
-}
-"@ | Out-File $tempScript -Encoding UTF8
+        # Normalize username format (domain\user or just user) to match user agent
+        # User agent uses: domain\user if domain exists, else just user
+        $normalizedUsername = $loggedInUser
         
-        # Create one-time scheduled task to run as logged-in user
-        $taskName = "VigyanShaala-Buzz-$(Get-Random)"
-        $action = New-ScheduledTaskAction -Execute "PowerShell.exe" `
-            -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$tempScript`""
-        $principal = New-ScheduledTaskPrincipal -UserId $loggedInUser `
-            -LogonType Interactive -RunLevel Limited
-        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(1)
-        $settings = New-ScheduledTaskSettingsSet `
-            -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-            -DeleteExpiredTaskAfter (New-TimeSpan -Seconds 30) `
-            -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
+        # Write notification to user_notifications table for user-session agent to process
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
         
-        Register-ScheduledTask -TaskName $taskName -Action $action `
-            -Principal $principal -Trigger $trigger -Settings $settings -Force | Out-Null
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "buzzer"
+            payload = @{
+                duration = $Duration
+            }
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
         
-        # Wait for task to complete
-        Start-Sleep -Seconds ($Duration + 3)
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
         
-        # Cleanup
-        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-        Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
-        
-        Write-Host "Buzz command executed in user session" -ForegroundColor Green
+        Write-Host "Buzz command queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
         return $true
     } catch {
-        Write-Error "Failed to buzz device: $_"
+        Write-Error "Failed to queue buzz command: $_"
         return $false
     }
 }
 
-# Function to show Windows Toast notification - runs in user session
+# Function to queue toast notification for user-session agent
 function Show-ToastNotification {
     param([string]$Title, [string]$Message)
     
+    Write-Host "Queueing toast notification for user-session agent..." -ForegroundColor Yellow
     try {
-        # Get logged-in user
+        # Get logged-in user (normalize to match user agent format)
         $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
         if (-not $loggedInUser) {
             Write-Warning "No logged-in user found, using msg.exe fallback"
@@ -126,59 +119,36 @@ function Show-ToastNotification {
             return $true
         }
         
-        # Create temporary script to show toast in user session
-        $tempScript = "$env:TEMP\toast-$(Get-Random).ps1"
-        $escapedTitle = $Title -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;' -replace "'", '&apos;'
-        $escapedMessage = $Message -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;' -replace "'", '&apos;'
+        # Normalize username format (domain\user or just user) to match user agent
+        # User agent uses: domain\user if domain exists, else just user
+        $normalizedUsername = $loggedInUser
         
-        @"
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-
-`$template = @"
-<toast>
-    <visual>
-        <binding template="ToastGeneric">
-            <text>$escapedTitle</text>
-            <text>$escapedMessage</text>
-        </binding>
-    </visual>
-    <audio src="ms-winsoundevent:Notification.Default" />
-</toast>
-"@
-
-`$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-`$xml.LoadXml(`$template)
-`$toast = [Windows.UI.Notifications.ToastNotification]::new(`$xml)
-`$toast.ExpirationTime = [DateTimeOffset]::Now.AddMinutes(5)
-`$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("VigyanShaala MDM")
-`$notifier.Show(`$toast)
-"@ | Out-File $tempScript -Encoding UTF8
+        # Write notification to user_notifications table for user-session agent to process
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
         
-        # Create one-time scheduled task to run as logged-in user
-        $taskName = "VigyanShaala-Toast-$(Get-Random)"
-        $action = New-ScheduledTaskAction -Execute "PowerShell.exe" `
-            -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$tempScript`""
-        $principal = New-ScheduledTaskPrincipal -UserId $loggedInUser `
-            -LogonType Interactive -RunLevel Limited
-        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(1)
-        $settings = New-ScheduledTaskSettingsSet `
-            -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-            -DeleteExpiredTaskAfter (New-TimeSpan -Seconds 30) `
-            -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "toast"
+            payload = @{
+                title = $Title
+                message = $Message
+            }
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
         
-        Register-ScheduledTask -TaskName $taskName -Action $action `
-            -Principal $principal -Trigger $trigger -Settings $settings -Force | Out-Null
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
         
-        # Wait a bit then cleanup
-        Start-Sleep -Seconds 3
-        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-        Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
-        
-        Write-Host "Toast notification sent to user session" -ForegroundColor Green
+        Write-Host "Toast notification queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
         return $true
     } catch {
-        Write-Warning "Toast notification failed: $_"
+        Write-Warning "Failed to queue toast notification: $_"
         # Fallback to msg.exe (works from SYSTEM)
         try {
             msg.exe * "$Title - $Message" 2>$null

@@ -277,6 +277,72 @@ if ($SupabaseUrl -and $SupabaseKey) {
         Write-Warning "Could not create command processor task: $_"
     }
     
+    # ============================================
+    # User Session Notification Agent (NEW - runs at user logon)
+    # ============================================
+    Write-Host "`nSetting up user-session notification agent..." -ForegroundColor Cyan
+    $userNotifyScript = "$InstallDir\user-notify-agent.ps1"
+    if (Test-Path "user-notify-agent.ps1") {
+        Copy-Item "user-notify-agent.ps1" $userNotifyScript -Force
+        Write-Host "user-notify-agent.ps1 copied" -ForegroundColor Green
+    } else {
+        Write-Warning "user-notify-agent.ps1 not found - user notifications will not work"
+    }
+    
+    # Create scheduled task that runs at user logon
+    # This task runs in each user's session when they log on
+    $userNotifyTaskName = "VigyanShaala-UserNotify-Agent"
+    $userNotifyTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$userNotifyScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`" -PollInterval 5"
+    
+    # Trigger: At logon (for any user)
+    $userNotifyTaskTrigger = New-ScheduledTaskTrigger -AtLogOn
+    
+    # Principal: Run as the user who logs on (use "Users" group or current user)
+    # For per-user tasks, we need to create it in the user's task folder
+    # But for simplicity, we'll create it to run for the "Users" group
+    # This will run for any user who logs on
+    try {
+        # Try to get current logged-on user
+        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $userNotifyTaskPrincipal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited
+        Write-Host "Creating user notification task for: $currentUser" -ForegroundColor Gray
+    } catch {
+        # Fallback: Use "Users" group (runs for any user)
+        $userNotifyTaskPrincipal = New-ScheduledTaskPrincipal -GroupId "Users" -LogonType Interactive -RunLevel Limited
+        Write-Host "Creating user notification task for Users group" -ForegroundColor Gray
+    }
+    
+    # Settings: Run only when user is logged on, allow start on batteries, no time limit
+    $userNotifyTaskSettings = New-ScheduledTaskSettingsSet `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -StartWhenAvailable `
+        -RunOnlyIfNetworkAvailable:$false `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 0)  # No time limit (runs continuously)
+    
+    try {
+        # Remove existing task if it exists
+        Unregister-ScheduledTask -TaskName $userNotifyTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        
+        # Register the task
+        $task = Register-ScheduledTask -TaskName $userNotifyTaskName `
+            -Action $userNotifyTaskAction `
+            -Trigger $userNotifyTaskTrigger `
+            -Principal $userNotifyTaskPrincipal `
+            -Settings $userNotifyTaskSettings `
+            -Description "VigyanShaala MDM User Notification Agent - Handles buzz and toast notifications in user session" `
+            -Force
+        
+        Enable-ScheduledTask -TaskName $userNotifyTaskName
+        Write-Host "User notification agent task created (runs at user logon)" -ForegroundColor Green
+        Write-Host "Note: This task runs in the logged-on user's session for UI/audio access" -ForegroundColor Yellow
+    } catch {
+        Write-Warning "Could not create user notification agent task: $_"
+        Write-Warning "User notifications (buzz/toast) will not work until this task is created"
+        Write-Warning "You may need to create this task manually for each user, or run the installer as each user"
+    }
+    
     # Copy chat interface script
     if (Test-Path "chat-interface.ps1") {
         Copy-Item "chat-interface.ps1" "$InstallDir\chat-interface.ps1" -Force
