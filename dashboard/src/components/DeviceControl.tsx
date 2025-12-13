@@ -30,14 +30,16 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
   const [broadcastMessage, setBroadcastMessage] = useState('')
   const [selectedBroadcastDevices, setSelectedBroadcastDevices] = useState<string[]>([])
   const [deviceSearchQuery, setDeviceSearchQuery] = useState('')
+  const [localSelectedDevice, setLocalSelectedDevice] = useState<string | null>(selectedDevice || null)
 
   useEffect(() => {
     fetchDevices()
     fetchLocations()
-    if (selectedDevice) {
-      fetchCommandHistory(selectedDevice)
+    const deviceToUse = selectedDevice || localSelectedDevice
+    if (deviceToUse) {
+      fetchCommandHistory(deviceToUse)
     }
-  }, [selectedDevice])
+  }, [selectedDevice, localSelectedDevice])
 
   async function fetchDevices() {
     try {
@@ -70,17 +72,38 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
 
   async function fetchCommandHistory(deviceHostname: string) {
     try {
-      const { data, error } = await supabase
+      // Normalize hostname for consistent matching (uppercase)
+      const normalizedHostname = deviceHostname.trim().toUpperCase()
+      
+      // Try exact match first
+      let { data, error } = await supabase
         .from('device_commands')
         .select('*')
-        .eq('device_hostname', deviceHostname)
+        .eq('device_hostname', normalizedHostname)
         .order('created_at', { ascending: false })
         .limit(50)
+      
+      // If no results, try case-insensitive search by fetching all and filtering
+      if ((!data || data.length === 0) && !error) {
+        const { data: allData, error: allError } = await supabase
+          .from('device_commands')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200)
+        
+        if (!allError && allData) {
+          data = allData.filter(cmd => 
+            cmd.device_hostname && 
+            cmd.device_hostname.trim().toUpperCase() === normalizedHostname
+          )
+        }
+      }
       
       if (error) throw error
       setCommandHistory(data || [])
     } catch (error) {
       console.error('Error fetching command history:', error)
+      setCommandHistory([])
     }
   }
 
@@ -96,8 +119,10 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
 
     setLoading(true)
     try {
+      // Normalize hostname: trim and convert to uppercase for consistent matching
+      const normalizedHostname = deviceHostname.trim().toUpperCase()
       const commandData: any = {
-        device_hostname: deviceHostname,
+        device_hostname: normalizedHostname,
         command_type: commandType,
         status: 'pending'
       }
@@ -113,8 +138,10 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
       if (error) throw error
 
       alert(`Command sent successfully! Device will execute ${commandType} command.`)
-      if (deviceHostname === selectedDevice) {
-        fetchCommandHistory(deviceHostname)
+      // Refresh command history if this device is selected
+      const deviceToUse = selectedDevice || localSelectedDevice
+      if (deviceHostname === deviceToUse) {
+        setTimeout(() => fetchCommandHistory(deviceHostname), 1000)
       }
     } catch (error: any) {
       console.error('Error sending command:', error)
@@ -137,8 +164,9 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
 
     setLoading(true)
     try {
+      // Normalize hostnames: trim and convert to uppercase for consistent matching
       const commands = selectedBroadcastDevices.map(hostname => ({
-        device_hostname: hostname,
+        device_hostname: hostname.trim().toUpperCase(),
         command_type: 'broadcast_message' as const,
         message: broadcastMessage,
         target_type: 'single' as const,
@@ -156,8 +184,9 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
       setSelectedBroadcastDevices([])
       
       // Refresh command history if viewing one of the target devices
-      if (selectedDevice && selectedBroadcastDevices.includes(selectedDevice)) {
-        fetchCommandHistory(selectedDevice)
+      const deviceToUse = selectedDevice || localSelectedDevice
+      if (deviceToUse && selectedBroadcastDevices.includes(deviceToUse)) {
+        setTimeout(() => fetchCommandHistory(deviceToUse), 1000)
       }
     } catch (error: any) {
       console.error('Error sending broadcast:', error)
@@ -192,7 +221,7 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
     )
   }
 
-  const targetDevice = selectedDevice || devices[0]?.hostname
+  const targetDevice = selectedDevice || localSelectedDevice || devices[0]?.hostname
 
   return (
     <div className="device-control-container">
@@ -202,10 +231,14 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
       <div className="control-section">
         <h3>Select Device</h3>
         <select
-          value={selectedDevice || ''}
+          value={selectedDevice || localSelectedDevice || ''}
           onChange={(e) => {
-            if (e.target.value) {
-              fetchCommandHistory(e.target.value)
+            const hostname = e.target.value
+            setLocalSelectedDevice(hostname || null)
+            if (hostname) {
+              fetchCommandHistory(hostname)
+            } else {
+              setCommandHistory([])
             }
           }}
           className="device-select"
@@ -342,7 +375,7 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
           <h3>📜 Command History</h3>
           <div className="command-history">
             {commandHistory.length === 0 ? (
-              <p>No commands sent yet</p>
+              <p>No commands sent yet for device: {targetDevice}</p>
             ) : (
               <table className="history-table">
                 <thead>

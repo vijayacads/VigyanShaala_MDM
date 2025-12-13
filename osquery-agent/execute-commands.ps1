@@ -13,6 +13,11 @@ if (-not $SupabaseUrl -or -not $SupabaseKey) {
     exit 1
 }
 
+# Normalize hostname: trim whitespace and convert to uppercase for consistent matching
+$DeviceHostname = $DeviceHostname.Trim().ToUpper()
+Write-Host "Normalized device hostname: '$DeviceHostname'" -ForegroundColor Cyan
+Write-Host "Original COMPUTERNAME: '$env:COMPUTERNAME'" -ForegroundColor Gray
+
 # Function to execute lock command
 function Lock-Device {
     Write-Host "Locking device..." -ForegroundColor Yellow
@@ -199,8 +204,10 @@ function Show-BroadcastMessage {
             "Content-Type" = "application/json"
         }
         
+        # Use normalized hostname for consistency
+        $normalizedHostname = $DeviceHostname.Trim().ToUpper()
         $body = @{
-            device_hostname = $DeviceHostname
+            device_hostname = $normalizedHostname
             sender = "center"
             message = "[BROADCAST] $Message"
         } | ConvertTo-Json
@@ -222,10 +229,29 @@ function Process-Commands {
     }
     
     # Get all pending commands for this device (process all, not just one)
+    # Use case-insensitive matching by querying with ilike (PostgreSQL case-insensitive like)
+    # Note: PostgREST doesn't support ilike directly, so we'll try exact match first, then try uppercase
     $commandUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname&command_type=in.(lock,unlock,clear_cache,buzz)&status=eq.pending&order=created_at.asc"
+    
+    Write-Host "Querying commands with hostname: '$DeviceHostname'" -ForegroundColor Gray
     
     try {
         $response = Invoke-RestMethod -Uri $commandUrl -Method GET -Headers $headers
+        
+        # If no results with exact match, try case-insensitive by querying all pending and filtering
+        if (-not $response -or $response.Count -eq 0) {
+            Write-Host "No commands found with exact hostname match, trying case-insensitive search..." -ForegroundColor Yellow
+            # Get all pending commands and filter by case-insensitive hostname match
+            $allCommandsUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=in.(lock,unlock,clear_cache,buzz)&status=eq.pending&order=created_at.asc&select=*"
+            $allCommands = Invoke-RestMethod -Uri $allCommandsUrl -Method GET -Headers $headers
+            if ($allCommands) {
+                $response = $allCommands | Where-Object { $_.device_hostname -and $_.device_hostname.Trim().ToUpper() -eq $DeviceHostname }
+                if ($response) {
+                    $response = @($response)  # Ensure it's an array
+                    Write-Host "Found $($response.Count) command(s) with case-insensitive match" -ForegroundColor Green
+                }
+            }
+        }
         
         if ($response -and $response.Count -gt 0) {
             Write-Host "Found $($response.Count) pending command(s) for device: $DeviceHostname" -ForegroundColor Cyan
@@ -286,8 +312,24 @@ function Process-BroadcastMessages {
     # Get pending broadcast messages
     $messageUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname&command_type=eq.broadcast_message&status=eq.pending&order=created_at.asc"
     
+    Write-Host "Querying broadcast messages with hostname: '$DeviceHostname'" -ForegroundColor Gray
+    
     try {
         $response = Invoke-RestMethod -Uri $messageUrl -Method GET -Headers $headers
+        
+        # If no results with exact match, try case-insensitive search
+        if (-not $response -or $response.Count -eq 0) {
+            Write-Host "No broadcast messages found with exact hostname match, trying case-insensitive search..." -ForegroundColor Yellow
+            $allMessagesUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=eq.broadcast_message&status=eq.pending&order=created_at.asc&select=*"
+            $allMessages = Invoke-RestMethod -Uri $allMessagesUrl -Method GET -Headers $headers
+            if ($allMessages) {
+                $response = $allMessages | Where-Object { $_.device_hostname -and $_.device_hostname.Trim().ToUpper() -eq $DeviceHostname }
+                if ($response) {
+                    $response = @($response)  # Ensure it's an array
+                    Write-Host "Found $($response.Count) broadcast message(s) with case-insensitive match" -ForegroundColor Green
+                }
+            }
+        }
         
         if ($response -and $response.Count -gt 0) {
             Write-Host "Found $($response.Count) pending broadcast message(s) for device: $DeviceHostname" -ForegroundColor Cyan
