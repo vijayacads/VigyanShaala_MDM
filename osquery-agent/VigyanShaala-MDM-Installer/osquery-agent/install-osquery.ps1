@@ -229,40 +229,60 @@ if ($SupabaseUrl -and $SupabaseKey) {
     $commandTaskName = "VigyanShaala-MDM-CommandProcessor"
     $commandTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
         -Argument "-ExecutionPolicy Bypass -File `"$commandScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`""
-    $commandTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Seconds 30) -RepetitionDuration (New-TimeSpan -Days 365)
+    $commandTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 365)
     $commandTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
     
     try {
         Unregister-ScheduledTask -TaskName $commandTaskName -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName $commandTaskName -Action $commandTaskAction -Trigger $commandTaskTrigger -Principal $commandTaskPrincipal -Description "Process MDM commands and messages every 30 seconds" -Force | Out-Null
-        Write-Host "Command processor task created (runs every 30 seconds)" -ForegroundColor Green
+        Register-ScheduledTask -TaskName $commandTaskName -Action $commandTaskAction -Trigger $commandTaskTrigger -Principal $commandTaskPrincipal -Description "Process MDM commands and messages every 1 minute" -Force | Out-Null
+        Write-Host "Command processor task created (runs every 1 minute)" -ForegroundColor Green
     } catch {
         Write-Warning "Could not create command processor task: $_"
     }
     
-    # Copy chat interface script and launcher
+    # Copy chat interface script
     if (Test-Path "chat-interface.ps1") {
         Copy-Item "chat-interface.ps1" "$InstallDir\chat-interface.ps1" -Force
         Write-Host "Chat interface script copied" -ForegroundColor Green
     }
     
-    # Copy chat launcher batch file
-    if (Test-Path "VigyanShaala_Chat.bat") {
-        Copy-Item "VigyanShaala_Chat.bat" "$InstallDir\VigyanShaala_Chat.bat" -Force
-        Write-Host "Chat launcher copied" -ForegroundColor Green
-        
-        # Create desktop shortcut
-        try {
-            $WshShell = New-Object -ComObject WScript.Shell
-            $Shortcut = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\VigyanShaala Chat.lnk")
-            $Shortcut.TargetPath = "$InstallDir\VigyanShaala_Chat.bat"
-            $Shortcut.WorkingDirectory = $InstallDir
-            $Shortcut.Description = "VigyanShaala MDM Chat Support"
-            $Shortcut.Save()
-            Write-Host "Desktop shortcut created: VigyanShaala Chat" -ForegroundColor Green
-        } catch {
-            Write-Warning "Could not create desktop shortcut: $_"
+    # Copy logo if available (for desktop shortcut icon)
+    $logoPath = "$InstallDir\Logo.png"
+    if (Test-Path "Logo.png") {
+        Copy-Item "Logo.png" $logoPath -Force
+        Write-Host "Logo copied" -ForegroundColor Green
+    } elseif (Test-Path "..\dashboard\public\Logo.png") {
+        Copy-Item "..\dashboard\public\Logo.png" $logoPath -Force
+        Write-Host "Logo copied from dashboard" -ForegroundColor Green
+    }
+    
+    # Create chat launcher batch file
+    $launcherPath = "$InstallDir\VigyanShaala_Chat.bat"
+    @"
+@echo off
+cd /d "$InstallDir"
+powershell.exe -ExecutionPolicy Bypass -File "chat-interface.ps1"
+"@ | Out-File $launcherPath -Encoding ASCII -Force
+    Write-Host "Chat launcher created" -ForegroundColor Green
+    
+    # Create desktop shortcut with logo icon
+    try {
+        $WshShell = New-Object -ComObject WScript.Shell
+        $desktopPath = [Environment]::GetFolderPath("Desktop")
+        $shortcutPath = "$desktopPath\VigyanShaala Chat.lnk"
+        $Shortcut = $WshShell.CreateShortcut($shortcutPath)
+        $Shortcut.TargetPath = $launcherPath
+        $Shortcut.WorkingDirectory = $InstallDir
+        $Shortcut.Description = "VigyanShaala MDM Chat & Broadcast Messages"
+        if (Test-Path $logoPath) {
+            # Convert PNG to ICO for icon (Windows shortcut icons need ICO format)
+            # For now, we'll use the PNG path - Windows 10+ supports PNG in shortcuts
+            $Shortcut.IconLocation = "$logoPath,0"
         }
+        $Shortcut.Save()
+        Write-Host "Desktop shortcut created: VigyanShaala Chat" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create desktop shortcut: $_"
     }
 }
 

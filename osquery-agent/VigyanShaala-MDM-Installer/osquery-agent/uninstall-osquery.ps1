@@ -147,9 +147,169 @@ if (Test-Path $programDataDir) {
     }
 }
 
-# Step 5: Remove environment variables (optional - commented out to preserve for reinstall)
-# Uncomment if you want to remove environment variables
-<#
+# Step 5: Remove desktop shortcuts
+Write-Host "Removing desktop shortcuts..." -ForegroundColor Yellow
+$desktopShortcuts = @(
+    "$env:USERPROFILE\Desktop\VigyanShaala Chat.lnk",
+    "$env:PUBLIC\Desktop\VigyanShaala Chat.lnk"
+)
+
+foreach ($shortcut in $desktopShortcuts) {
+    if (Test-Path $shortcut) {
+        try {
+            Remove-Item -Path $shortcut -Force -ErrorAction Stop
+            Write-Host "Removed desktop shortcut: $shortcut" -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not remove shortcut $shortcut : $_"
+        }
+    }
+}
+
+# Step 6: Remove website blocklist from hosts file and registry
+Write-Host "Removing website blocklist..." -ForegroundColor Yellow
+try {
+    $hostsFile = "$env:SystemRoot\System32\drivers\etc\hosts"
+    $mdmMarkerStart = "# VigyanShaala-MDM Blocklist Start"
+    $mdmMarkerEnd = "# VigyanShaala-MDM Blocklist End"
+    
+    if (Test-Path $hostsFile) {
+        $allLines = Get-Content $hostsFile -ErrorAction SilentlyContinue
+        $cleanedLines = @()
+        $insideMdmSection = $false
+        $foundMdmSection = $false
+        
+        foreach ($line in $allLines) {
+            if ($line -eq $mdmMarkerStart) {
+                $insideMdmSection = $true
+                $foundMdmSection = $true
+                continue
+            }
+            if ($line -eq $mdmMarkerEnd) {
+                $insideMdmSection = $false
+                continue
+            }
+            if (-not $insideMdmSection) {
+                $cleanedLines += $line
+            }
+        }
+        
+        if ($foundMdmSection) {
+            $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force
+            Write-Host "Removed MDM blocklist entries from hosts file" -ForegroundColor Green
+            
+            # Flush DNS cache multiple times to ensure it's cleared
+            Write-Host "Flushing DNS cache..." -ForegroundColor Cyan
+            ipconfig /flushdns | Out-Null
+            Start-Sleep -Seconds 1
+            ipconfig /flushdns | Out-Null
+            Write-Host "DNS cache flushed" -ForegroundColor Green
+            
+            # Also clear browser DNS cache by restarting DNS client service
+            Write-Host "Restarting DNS client service..." -ForegroundColor Cyan
+            Restart-Service -Name "Dnscache" -Force -ErrorAction SilentlyContinue
+            Write-Host "DNS client service restarted" -ForegroundColor Green
+        } else {
+            Write-Host "No MDM blocklist entries found in hosts file" -ForegroundColor Gray
+        }
+    }
+    
+    # Remove Chrome registry policy
+    $chromePolicyPath = "HKLM:\SOFTWARE\Policies\Google\Chrome"
+    if (Test-Path $chromePolicyPath) {
+        try {
+            $urlBlocklist = Get-ItemProperty -Path $chromePolicyPath -Name "URLBlocklist" -ErrorAction SilentlyContinue
+            if ($urlBlocklist) {
+                Remove-ItemProperty -Path $chromePolicyPath -Name "URLBlocklist" -ErrorAction Stop
+                Write-Host "Removed Chrome URLBlocklist policy" -ForegroundColor Green
+            } else {
+                Write-Host "No Chrome URLBlocklist policy found" -ForegroundColor Gray
+            }
+            
+            # Also check for and remove URLAllowlist if it exists (sometimes used together)
+            $urlAllowlist = Get-ItemProperty -Path $chromePolicyPath -Name "URLAllowlist" -ErrorAction SilentlyContinue
+            if ($urlAllowlist) {
+                Remove-ItemProperty -Path $chromePolicyPath -Name "URLAllowlist" -ErrorAction SilentlyContinue
+                Write-Host "Removed Chrome URLAllowlist policy" -ForegroundColor Green
+            }
+        } catch {
+            Write-Warning "Could not remove Chrome policy: $_"
+        }
+    }
+    
+    # Remove Edge registry policy
+    $edgePolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+    if (Test-Path $edgePolicyPath) {
+        try {
+            $urlBlocklist = Get-ItemProperty -Path $edgePolicyPath -Name "URLBlocklist" -ErrorAction SilentlyContinue
+            if ($urlBlocklist) {
+                Remove-ItemProperty -Path $edgePolicyPath -Name "URLBlocklist" -ErrorAction Stop
+                Write-Host "Removed Edge URLBlocklist policy" -ForegroundColor Green
+            } else {
+                Write-Host "No Edge URLBlocklist policy found" -ForegroundColor Gray
+            }
+            
+            # Also check for and remove URLAllowlist if it exists
+            $urlAllowlist = Get-ItemProperty -Path $edgePolicyPath -Name "URLAllowlist" -ErrorAction SilentlyContinue
+            if ($urlAllowlist) {
+                Remove-ItemProperty -Path $edgePolicyPath -Name "URLAllowlist" -ErrorAction SilentlyContinue
+                Write-Host "Removed Edge URLAllowlist policy" -ForegroundColor Green
+            }
+        } catch {
+            Write-Warning "Could not remove Edge policy: $_"
+        }
+    }
+    
+    # Check for Firefox policies (if any were added)
+    $firefoxPolicyPath = "HKLM:\SOFTWARE\Policies\Mozilla\Firefox"
+    if (Test-Path $firefoxPolicyPath) {
+        try {
+            $blocklist = Get-ItemProperty -Path $firefoxPolicyPath -Name "BlockAboutConfig" -ErrorAction SilentlyContinue
+            if ($blocklist) {
+                Remove-ItemProperty -Path $firefoxPolicyPath -Name "BlockAboutConfig" -ErrorAction SilentlyContinue
+                Write-Host "Removed Firefox policy restrictions" -ForegroundColor Green
+            }
+        } catch {
+            # Firefox policies are less common, ignore errors
+        }
+    }
+    
+    Write-Host ""
+    Write-Host "IMPORTANT: Please restart your browser(s) for changes to take full effect!" -ForegroundColor Yellow
+    Write-Host "  - Close all Chrome windows and reopen" -ForegroundColor White
+    Write-Host "  - Close all Edge windows and reopen" -ForegroundColor White
+    Write-Host "  - If still blocked, clear browser cache: Settings > Privacy > Clear browsing data" -ForegroundColor White
+} catch {
+    Write-Warning "Could not remove website blocklist: $_"
+}
+
+# Step 6b: Remove registry keys that may have been added by prevent-uninstall.ps1 (if it was run)
+# Only remove the specific keys we may have added, not the entire registry paths
+Write-Host "Checking for additional registry keys..." -ForegroundColor Yellow
+try {
+    $installerPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Installer"
+    if (Test-Path $installerPolicyPath) {
+        # Only remove the specific values we may have added, not the entire key
+        $disableUserInstalls = Get-ItemProperty -Path $installerPolicyPath -Name "DisableUserInstalls" -ErrorAction SilentlyContinue
+        $disableMSI = Get-ItemProperty -Path $installerPolicyPath -Name "DisableMSI" -ErrorAction SilentlyContinue
+        
+        if ($disableUserInstalls) {
+            Remove-ItemProperty -Path $installerPolicyPath -Name "DisableUserInstalls" -ErrorAction SilentlyContinue
+            Write-Host "Removed DisableUserInstalls registry value" -ForegroundColor Green
+        }
+        
+        if ($disableMSI) {
+            Remove-ItemProperty -Path $installerPolicyPath -Name "DisableMSI" -ErrorAction SilentlyContinue
+            Write-Host "Removed DisableMSI registry value" -ForegroundColor Green
+        }
+        
+        # If the key is now empty (only had our values), we could remove it, but it's safer to leave it
+        # as other software might use it
+    }
+} catch {
+    Write-Warning "Could not check/remove additional registry keys: $_"
+}
+
+# Step 7: Remove environment variables
 Write-Host "Removing environment variables..." -ForegroundColor Yellow
 try {
     [Environment]::SetEnvironmentVariable("SUPABASE_URL", $null, "Machine")
@@ -159,10 +319,9 @@ try {
 } catch {
     Write-Warning "Could not remove environment variables: $_"
 }
-#>
 
-# Step 6: Optionally remove device from Supabase
-if ($RemoveFromSupabase -and $SupabaseUrl -and $SupabaseAnonKey) {
+# Step 8: Remove device from Supabase (if credentials available)
+if ($SupabaseUrl -and $SupabaseAnonKey) {
     Write-Host ""
     Write-Host "Removing device from Supabase..." -ForegroundColor Yellow
     
@@ -175,23 +334,24 @@ if ($RemoveFromSupabase -and $SupabaseUrl -and $SupabaseAnonKey) {
             "Authorization" = "Bearer $SupabaseAnonKey"
         }
         
-        # First, find the device
-        $response = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices?hostname=eq.$hostname&select=id" `
-            -Method GET -Headers $headers
+        # Delete device using hostname as primary key (devices table uses hostname as PK, not id)
+        $deleteUri = "$SupabaseUrl/rest/v1/devices?hostname=eq.$hostname"
+        $response = Invoke-RestMethod -Uri $deleteUri -Method DELETE -Headers $headers
         
-        if ($response -and $response.Count -gt 0) {
-            $deviceId = $response[0].id
-            # Delete device
-            Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices?id=eq.$deviceId" `
-                -Method DELETE -Headers $headers | Out-Null
-            Write-Host "Device removed from Supabase (ID: $deviceId)" -ForegroundColor Green
-        } else {
-            Write-Host "Device not found in Supabase" -ForegroundColor Gray
-        }
+        Write-Host "Device removed from Supabase (hostname: $hostname)" -ForegroundColor Green
     } catch {
-        Write-Warning "Could not remove device from Supabase: $_"
-        Write-Host "You may need to remove it manually from the dashboard" -ForegroundColor Yellow
+        # Check if it's a 404 (device not found) or actual error
+        if ($_.Exception.Response.StatusCode -eq 404) {
+            Write-Host "Device not found in Supabase (may have been already removed)" -ForegroundColor Gray
+        } else {
+            Write-Warning "Could not remove device from Supabase: $_"
+            Write-Host "You may need to remove it manually from the dashboard" -ForegroundColor Yellow
+        }
     }
+} else {
+    Write-Host ""
+    Write-Host "Note: Supabase credentials not found. Device will remain in dashboard." -ForegroundColor Yellow
+    Write-Host "      You can remove it manually from the dashboard." -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -200,9 +360,6 @@ Write-Host "Uninstallation Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "osquery agent has been removed from this computer." -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Note: Environment variables were kept (in case you want to reinstall)." -ForegroundColor Gray
-Write-Host "      To remove them, edit this script and uncomment the environment variable removal section." -ForegroundColor Gray
 Write-Host ""
 
 pause

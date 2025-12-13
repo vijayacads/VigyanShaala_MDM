@@ -28,9 +28,8 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
   const [loading, setLoading] = useState(false)
   const [buzzDuration, setBuzzDuration] = useState(5)
   const [broadcastMessage, setBroadcastMessage] = useState('')
-  const [broadcastTarget, setBroadcastTarget] = useState<'single' | 'location' | 'all'>('single')
-  const [selectedBroadcastDevice, setSelectedBroadcastDevice] = useState('')
-  const [selectedBroadcastLocation, setSelectedBroadcastLocation] = useState('')
+  const [selectedBroadcastDevices, setSelectedBroadcastDevices] = useState<string[]>([])
+  const [deviceSearchQuery, setDeviceSearchQuery] = useState('')
 
   useEffect(() => {
     fetchDevices()
@@ -131,40 +130,18 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
       return
     }
 
-    if (broadcastTarget === 'single' && !selectedBroadcastDevice) {
-      alert('Please select a device')
-      return
-    }
-
-    if (broadcastTarget === 'location' && !selectedBroadcastLocation) {
-      alert('Please select a location')
+    if (selectedBroadcastDevices.length === 0) {
+      alert('Please select at least one device')
       return
     }
 
     setLoading(true)
     try {
-      let targetDevices: string[] = []
-
-      if (broadcastTarget === 'single') {
-        targetDevices = [selectedBroadcastDevice]
-      } else if (broadcastTarget === 'location') {
-        const { data } = await supabase
-          .from('devices')
-          .select('hostname')
-          .eq('location_id', selectedBroadcastLocation)
-        
-        targetDevices = (data || []).map(d => d.hostname)
-      } else {
-        // All devices
-        targetDevices = devices.map(d => d.hostname)
-      }
-
-      const commands = targetDevices.map(hostname => ({
+      const commands = selectedBroadcastDevices.map(hostname => ({
         device_hostname: hostname,
         command_type: 'broadcast_message' as const,
         message: broadcastMessage,
-        target_type: broadcastTarget,
-        target_location_id: broadcastTarget === 'location' ? selectedBroadcastLocation : null,
+        target_type: 'single' as const,
         status: 'pending' as const
       }))
 
@@ -174,14 +151,43 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
 
       if (error) throw error
 
-      alert(`Broadcast message sent to ${targetDevices.length} device(s)!`)
+      alert(`Broadcast message sent to ${selectedBroadcastDevices.length} device(s)!`)
       setBroadcastMessage('')
+      setSelectedBroadcastDevices([])
+      
+      // Refresh command history if viewing one of the target devices
+      if (selectedDevice && selectedBroadcastDevices.includes(selectedDevice)) {
+        fetchCommandHistory(selectedDevice)
+      }
     } catch (error: any) {
       console.error('Error sending broadcast:', error)
       alert(`Error: ${error.message}`)
     } finally {
       setLoading(false)
     }
+  }
+
+  const filteredDevices = devices.filter(device => {
+    if (!deviceSearchQuery.trim()) return true
+    const query = deviceSearchQuery.toLowerCase()
+    return device.hostname?.toLowerCase().includes(query) ||
+           device.device_inventory_code?.toLowerCase().includes(query)
+  })
+
+  const handleSelectAll = () => {
+    if (selectedBroadcastDevices.length === filteredDevices.length) {
+      setSelectedBroadcastDevices([])
+    } else {
+      setSelectedBroadcastDevices(filteredDevices.map(d => d.hostname))
+    }
+  }
+
+  const handleDeviceToggle = (hostname: string) => {
+    setSelectedBroadcastDevices(prev => 
+      prev.includes(hostname)
+        ? prev.filter(h => h !== hostname)
+        : [...prev, hostname]
+    )
   }
 
   const targetDevice = selectedDevice || devices[0]?.hostname
@@ -264,47 +270,52 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
       <div className="control-section">
         <h3>📢 Broadcast Message</h3>
         <div className="broadcast-controls">
-          <div className="broadcast-target">
-            <label>Target:</label>
-            <select
-              value={broadcastTarget}
-              onChange={(e) => setBroadcastTarget(e.target.value as any)}
-            >
-              <option value="single">Single Device</option>
-              <option value="location">Location (All devices)</option>
-              <option value="all">All Devices</option>
-            </select>
+          <div className="device-selection-container">
+            <div className="device-search-header">
+              <input
+                type="text"
+                placeholder="🔍 Search devices by name or inventory code..."
+                value={deviceSearchQuery}
+                onChange={(e) => setDeviceSearchQuery(e.target.value)}
+                className="device-search-input"
+              />
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="select-all-btn"
+              >
+                {selectedBroadcastDevices.length === filteredDevices.length && filteredDevices.length > 0
+                  ? 'Deselect All'
+                  : 'Select All'}
+              </button>
+            </div>
+            <div className="device-list-container">
+              {filteredDevices.length === 0 ? (
+                <p className="no-devices">No devices found</p>
+              ) : (
+                <div className="device-checkbox-list">
+                  {filteredDevices.map(device => (
+                    <label key={device.hostname} className="device-checkbox-item">
+                      <input
+                        type="checkbox"
+                        checked={selectedBroadcastDevices.includes(device.hostname)}
+                        onChange={() => handleDeviceToggle(device.hostname)}
+                      />
+                      <span>
+                        {device.hostname}
+                        {device.device_inventory_code && ` (${device.device_inventory_code})`}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            {selectedBroadcastDevices.length > 0 && (
+              <div className="selected-count">
+                {selectedBroadcastDevices.length} device(s) selected
+              </div>
+            )}
           </div>
-
-          {broadcastTarget === 'single' && (
-            <select
-              value={selectedBroadcastDevice}
-              onChange={(e) => setSelectedBroadcastDevice(e.target.value)}
-              className="device-select"
-            >
-              <option value="">-- Select Device --</option>
-              {devices.map(device => (
-                <option key={device.hostname} value={device.hostname}>
-                  {device.hostname}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {broadcastTarget === 'location' && (
-            <select
-              value={selectedBroadcastLocation}
-              onChange={(e) => setSelectedBroadcastLocation(e.target.value)}
-              className="device-select"
-            >
-              <option value="">-- Select Location --</option>
-              {locations.map(location => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          )}
 
           <textarea
             value={broadcastMessage}
@@ -315,10 +326,10 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
           />
           <button
             onClick={sendBroadcastMessage}
-            disabled={loading || !broadcastMessage.trim()}
+            disabled={loading || !broadcastMessage.trim() || selectedBroadcastDevices.length === 0}
             className="send-broadcast-btn"
           >
-            📤 Send Broadcast
+            📤 Send Broadcast ({selectedBroadcastDevices.length} device{selectedBroadcastDevices.length !== 1 ? 's' : ''})
           </button>
         </div>
       </div>
