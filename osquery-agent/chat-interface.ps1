@@ -1,6 +1,6 @@
 # Chat Interface for Windows Devices
 # Beautiful UI with VigyanShaala branding and tabs for Chat and Broadcast Messages
-# UTF-8 with BOM encoding required for emoji support
+# Uses Unicode escape sequences for emojis to ensure PowerShell 7+ compatibility
 
 param(
     [string]$SupabaseUrl = $env:SUPABASE_URL,
