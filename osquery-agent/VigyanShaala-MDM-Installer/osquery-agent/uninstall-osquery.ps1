@@ -589,19 +589,19 @@ Write-Host ""
 Write-Host "osquery agent has been removed from this computer." -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Removed components:" -ForegroundColor Cyan
-Write-Host "  ✓ osquery service" -ForegroundColor White
-Write-Host "  ✓ All scheduled tasks" -ForegroundColor White
-Write-Host "  ✓ Installation files and directories" -ForegroundColor White
-Write-Host "  ✓ ProgramData files and logs" -ForegroundColor White
-Write-Host "  ✓ Desktop shortcuts" -ForegroundColor White
-Write-Host "  ✓ Website blocklist entries" -ForegroundColor White
-Write-Host "  ✓ Registry entries" -ForegroundColor White
-Write-Host "  ✓ Environment variables" -ForegroundColor White
-Write-Host "  ✓ Firewall rules" -ForegroundColor White
-Write-Host "  ✓ Startup entries" -ForegroundColor White
-Write-Host "  ✓ Temporary files" -ForegroundColor White
+Write-Host "  [OK] osquery service" -ForegroundColor White
+Write-Host "  [OK] All scheduled tasks" -ForegroundColor White
+Write-Host "  [OK] Installation files and directories" -ForegroundColor White
+Write-Host "  [OK] ProgramData files and logs" -ForegroundColor White
+Write-Host "  [OK] Desktop shortcuts" -ForegroundColor White
+Write-Host "  [OK] Website blocklist entries" -ForegroundColor White
+Write-Host "  [OK] Registry entries" -ForegroundColor White
+Write-Host "  [OK] Environment variables" -ForegroundColor White
+Write-Host "  [OK] Firewall rules" -ForegroundColor White
+Write-Host "  [OK] Startup entries" -ForegroundColor White
+Write-Host "  [OK] Temporary files" -ForegroundColor White
 if ($SupabaseUrl -and $SupabaseAnonKey) {
-    Write-Host "  ✓ Device removed from Supabase" -ForegroundColor White
+    Write-Host "  [OK] Device removed from Supabase" -ForegroundColor White
 }
 Write-Host ""
 

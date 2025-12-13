@@ -1,4 +1,4 @@
-# Chat Interface for Windows Devices
+﻿# Chat Interface for Windows Devices
 # Beautiful UI with VigyanShaala branding and tabs for Chat and Broadcast Messages
 # UTF-8 with BOM encoding required for emoji support
 
@@ -80,7 +80,7 @@ $headerPanel.Controls.Add($titleLabel)
 
 # Device Label - Colorful accent
 $deviceLabel = New-Object System.Windows.Forms.Label
-$deviceLabel.Text = "🖥️ Device: $DeviceHostname"
+$deviceLabel.Text = "ðŸ–¥ï¸ Device: $DeviceHostname"
 $deviceLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Regular)
 $deviceLabel.ForeColor = $PrimaryYellow
 $deviceLabel.Location = New-Object System.Drawing.Point(105, 55)
@@ -98,14 +98,14 @@ $form.Controls.Add($tabControl)
 
 # Chat Tab - With emoji
 $chatTab = New-Object System.Windows.Forms.TabPage
-$chatTab.Text = "💬 Chat"
+$chatTab.Text = "ðŸ’¬ Chat"
 $chatTab.BackColor = $White
 $chatTab.Padding = New-Object System.Windows.Forms.Padding(10)
 $tabControl.TabPages.Add($chatTab)
 
 # Broadcast Messages Tab - With emoji
 $broadcastTab = New-Object System.Windows.Forms.TabPage
-$broadcastTab.Text = "📢 Broadcast Messages"
+$broadcastTab.Text = "ðŸ“¢ Broadcast Messages"
 $broadcastTab.BackColor = $White
 $broadcastTab.Padding = New-Object System.Windows.Forms.Padding(10)
 $tabControl.TabPages.Add($broadcastTab)
@@ -140,7 +140,7 @@ $inputPanel.Controls.Add($chatInputBox)
 $chatSendButton = New-Object System.Windows.Forms.Button
 $chatSendButton.Location = New-Object System.Drawing.Point(620, 10)
 $chatSendButton.Size = New-Object System.Drawing.Size(110, 40)
-$chatSendButton.Text = "📤 Send"
+$chatSendButton.Text = "ðŸ“¤ Send"
 $chatSendButton.BackColor = $PrimaryGreen
 $chatSendButton.ForeColor = $White
 $chatSendButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -163,7 +163,7 @@ $broadcastTab.Controls.Add($broadcastMessageBox)
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.Location = New-Object System.Drawing.Point(15, 665)
 $statusLabel.Size = New-Object System.Drawing.Size(770, 25)
-$statusLabel.Text = "🟢 Connected"
+$statusLabel.Text = "ðŸŸ¢ Connected"
 $statusLabel.ForeColor = $PrimaryGreen
 $statusLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $statusLabel.BackColor = $LightBg
@@ -178,8 +178,8 @@ function Format-Message {
         [bool]$IsBroadcast = $false
     )
     
-    $prefix = if ($IsBroadcast) { "📢 [BROADCAST]" } else { "" }
-    $senderIcon = if ($Sender -eq "Support") { "👨‍💼" } else { "👤" }
+    $prefix = if ($IsBroadcast) { "ðŸ“¢ [BROADCAST]" } else { "" }
+    $senderIcon = if ($Sender -eq "Support") { "ðŸ‘¨â€ðŸ’¼" } else { "ðŸ‘¤" }
     
     $formatted = "[$Time] $prefix $senderIcon $Sender`: $Message`r`n"
     return $formatted
@@ -205,15 +205,15 @@ function Load-ChatMessages {
                 $chatMessageBox.AppendText($formatted)
             }
         } else {
-            $chatMessageBox.AppendText("💬 No messages yet. Start a conversation!`r`n")
+            $chatMessageBox.AppendText("ðŸ’¬ No messages yet. Start a conversation!`r`n")
             $chatMessageBox.SelectionColor = $PrimaryBlue
         }
         $chatMessageBox.SelectionStart = $chatMessageBox.Text.Length
         $chatMessageBox.ScrollToCaret()
-        $statusLabel.Text = "🟢 Connected - Ready to chat"
+        $statusLabel.Text = "ðŸŸ¢ Connected - Ready to chat"
         $statusLabel.ForeColor = $PrimaryGreen
     } catch {
-        $statusLabel.Text = "❌ Error loading messages: $_"
+        $statusLabel.Text = "âŒ Error loading messages: $_"
         $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(231, 76, 60)
     }
 }
@@ -236,23 +236,23 @@ function Load-BroadcastMessages {
                     $time = [DateTime]::Parse($msg.created_at).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
                     $status = $msg.status
                     $statusIcon = switch ($status) {
-                        "pending" { "⏳" }
-                        "dismissed" { "✓" }
-                        "expired" { "⏰" }
-                        default { "🔔" }
+                        "pending" { "â³" }
+                        "dismissed" { "âœ“" }
+                        "expired" { "â°" }
+                        default { "ðŸ””" }
                     }
                     $formatted = "[$time] $statusIcon $($msg.message)`r`n"
                     $broadcastMessageBox.AppendText($formatted)
                 }
             }
         } else {
-            $broadcastMessageBox.AppendText("📢 No broadcast messages yet.`r`n")
+            $broadcastMessageBox.AppendText("ðŸ“¢ No broadcast messages yet.`r`n")
             $broadcastMessageBox.SelectionColor = $PrimaryBlue
         }
         $broadcastMessageBox.SelectionStart = $broadcastMessageBox.Text.Length
         $broadcastMessageBox.ScrollToCaret()
     } catch {
-        $statusLabel.Text = "❌ Error loading broadcast messages: $_"
+        $statusLabel.Text = "âŒ Error loading broadcast messages: $_"
         $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(231, 76, 60)
     }
 }
@@ -280,10 +280,10 @@ function Send-ChatMessage {
         Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $body | Out-Null
         $chatInputBox.Clear()
         Load-ChatMessages
-        $statusLabel.Text = "✅ Message sent successfully"
+        $statusLabel.Text = "âœ… Message sent successfully"
         $statusLabel.ForeColor = $PrimaryGreen
     } catch {
-        $statusLabel.Text = "❌ Error sending message: $_"
+        $statusLabel.Text = "âŒ Error sending message: $_"
         $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(231, 76, 60)
     }
 }

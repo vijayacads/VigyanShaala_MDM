@@ -312,8 +312,24 @@ function Process-BroadcastMessages {
     # Get pending broadcast messages
     $messageUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname&command_type=eq.broadcast_message&status=eq.pending&order=created_at.asc"
     
+    Write-Host "Querying broadcast messages with hostname: '$DeviceHostname'" -ForegroundColor Gray
+    
     try {
         $response = Invoke-RestMethod -Uri $messageUrl -Method GET -Headers $headers
+        
+        # If no results with exact match, try case-insensitive search
+        if (-not $response -or $response.Count -eq 0) {
+            Write-Host "No broadcast messages found with exact hostname match, trying case-insensitive search..." -ForegroundColor Yellow
+            $allMessagesUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=eq.broadcast_message&status=eq.pending&order=created_at.asc&select=*"
+            $allMessages = Invoke-RestMethod -Uri $allMessagesUrl -Method GET -Headers $headers
+            if ($allMessages) {
+                $response = $allMessages | Where-Object { $_.device_hostname -and $_.device_hostname.Trim().ToUpper() -eq $DeviceHostname }
+                if ($response) {
+                    $response = @($response)  # Ensure it's an array
+                    Write-Host "Found $($response.Count) broadcast message(s) with case-insensitive match" -ForegroundColor Green
+                }
+            }
+        }
         
         if ($response -and $response.Count -gt 0) {
             Write-Host "Found $($response.Count) pending broadcast message(s) for device: $DeviceHostname" -ForegroundColor Cyan

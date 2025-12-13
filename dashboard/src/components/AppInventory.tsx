@@ -260,6 +260,7 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
     { field: 'city_town_village', headerName: 'City/Town/Village', sortable: true, filter: true, width: 180 },
     { field: 'assigned_teacher', headerName: 'Assigned Teacher', sortable: true, filter: true, width: 150 },
     { field: 'assigned_student_leader', headerName: 'Student Leader', sortable: true, filter: true, width: 150 },
+    { field: 'wifi_ssid', headerName: 'WiFi SSID', sortable: true, filter: true, width: 150 },
     { 
       field: 'compliance_status', 
       headerName: 'Compliance', 
@@ -283,9 +284,45 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
       cellRenderer: PerformanceStatusRenderer,
       width: 130
     },
-    { field: 'battery_health_percent', headerName: 'Battery Health (%)', sortable: true, width: 140 },
-    { field: 'storage_used_percent', headerName: 'Storage Used (%)', sortable: true, width: 140 },
-    { field: 'boot_time_avg_seconds', headerName: 'Boot Time (s)', sortable: true, width: 130 },
+    { 
+      field: 'battery_health_percent', 
+      headerName: 'Battery (%)', 
+      sortable: true, 
+      width: 120,
+      cellRenderer: (params: ICellRendererParams) => {
+        const value = params.value
+        if (value === null || value === undefined) return <span style={{ color: '#9ca3af' }}>N/A</span>
+        const color = value >= 80 ? '#10b981' : value >= 50 ? '#f59e0b' : '#ef4444'
+        return <span style={{ color, fontWeight: 'bold' }}>{value}%</span>
+      }
+    },
+    { 
+      field: 'storage_used_percent', 
+      headerName: 'Storage (%)', 
+      sortable: true, 
+      width: 120,
+      cellRenderer: (params: ICellRendererParams) => {
+        const value = params.value
+        if (value === null || value === undefined) return <span style={{ color: '#9ca3af' }}>N/A</span>
+        const color = value < 70 ? '#10b981' : value < 90 ? '#f59e0b' : '#ef4444'
+        return <span style={{ color, fontWeight: 'bold' }}>{value}%</span>
+      }
+    },
+    { 
+      field: 'boot_time_avg_seconds', 
+      headerName: 'Boot Time', 
+      sortable: true, 
+      width: 120,
+      cellRenderer: (params: ICellRendererParams) => {
+        const value = params.value
+        if (value === null || value === undefined) return <span style={{ color: '#9ca3af' }}>N/A</span>
+        const seconds = parseInt(value)
+        if (seconds < 60) return `${seconds}s`
+        const minutes = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${minutes}m ${secs}s`
+      }
+    },
     { field: 'crash_error_count', headerName: 'Crash/Error Count', sortable: true, width: 150 },
     { field: 'last_health_check', headerName: 'Last Health Check', sortable: true, width: 180 },
     { field: 'last_login_date', headerName: 'Last Login Date', sortable: true, width: 150 },
@@ -331,9 +368,10 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
         'Compliance Status': device.compliance_status || '',
         'Device Status': device.device_status || '',
         'Performance Status': device.performance_status || '',
-        'Battery Health (%)': device.battery_health_percent ?? '',
-        'Storage Used (%)': device.storage_used_percent ?? '',
-        'Boot Time (s)': device.boot_time_avg_seconds ?? '',
+        'Battery Health (%)': device.battery_health_percent ?? 'N/A',
+        'Storage Used (%)': device.storage_used_percent ?? 'N/A',
+        'Boot Time (s)': device.boot_time_avg_seconds ?? 'N/A',
+        'WiFi SSID': device.wifi_ssid || 'N/A',
         'Crash/Error Count': device.crash_error_count ?? 0,
         'Last Health Check': device.last_health_check || '',
         'Last Login Date': device.last_login_date || '',
@@ -472,11 +510,15 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
             <div><strong>Inventory Code:</strong> {selectedDevice.device_inventory_code || 'N/A'}</div>
             <div><strong>Hostname:</strong> {selectedDevice.hostname}</div>
             <div><strong>IMEI Number:</strong> {selectedDevice.device_imei_number || 'N/A'}</div>
+            <div><strong>Device Make:</strong> {selectedDevice.device_make || 'N/A'}</div>
             <div><strong>Host Location:</strong> {selectedDevice.host_location || 'N/A'}</div>
             <div><strong>Location:</strong> {selectedDevice.location_name}</div>
             <div><strong>City/Town/Village:</strong> {selectedDevice.city_town_village || 'N/A'}</div>
             <div><strong>Laptop Model:</strong> {selectedDevice.laptop_model || 'N/A'}</div>
             <div><strong>OS Version:</strong> {selectedDevice.os_version}</div>
+            <div><strong>WiFi SSID:</strong> {selectedDevice.wifi_ssid || 'N/A'}</div>
+            <div><strong>Role:</strong> {selectedDevice.role || 'N/A'}</div>
+            <div><strong>Issue Date:</strong> {selectedDevice.issue_date || 'N/A'}</div>
             <div><strong>Last Seen:</strong> {selectedDevice.last_seen}</div>
             <div>
               <strong>Status:</strong> 
@@ -489,6 +531,56 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
                 {selectedDevice.compliance_status.toUpperCase().replace('_', ' ')}
               </span>
             </div>
+            <div><strong>Performance Status:</strong> 
+              <span style={{ 
+                color: selectedDevice.performance_status === 'good' ? '#10b981' : 
+                       selectedDevice.performance_status === 'warning' ? '#f59e0b' : 
+                       selectedDevice.performance_status === 'critical' ? '#ef4444' : '#6b7280',
+                fontWeight: 'bold',
+                marginLeft: '8px'
+              }}>
+                {selectedDevice.performance_status ? selectedDevice.performance_status.toUpperCase() : 'UNKNOWN'}
+              </span>
+            </div>
+            <div><strong>Battery Health:</strong> 
+              {selectedDevice.battery_health_percent !== null && selectedDevice.battery_health_percent !== undefined ? (
+                <span style={{ 
+                  color: selectedDevice.battery_health_percent >= 80 ? '#10b981' : 
+                         selectedDevice.battery_health_percent >= 50 ? '#f59e0b' : '#ef4444',
+                  fontWeight: 'bold',
+                  marginLeft: '8px'
+                }}>
+                  {selectedDevice.battery_health_percent}%
+                </span>
+              ) : 'N/A'}
+            </div>
+            <div><strong>Storage Used:</strong> 
+              {selectedDevice.storage_used_percent !== null && selectedDevice.storage_used_percent !== undefined ? (
+                <span style={{ 
+                  color: selectedDevice.storage_used_percent < 70 ? '#10b981' : 
+                         selectedDevice.storage_used_percent < 90 ? '#f59e0b' : '#ef4444',
+                  fontWeight: 'bold',
+                  marginLeft: '8px'
+                }}>
+                  {selectedDevice.storage_used_percent}%
+                </span>
+              ) : 'N/A'}
+            </div>
+            <div><strong>Boot Time:</strong> 
+              {selectedDevice.boot_time_avg_seconds !== null && selectedDevice.boot_time_avg_seconds !== undefined ? (
+                <span style={{ marginLeft: '8px' }}>
+                  {(() => {
+                    const seconds = parseInt(selectedDevice.boot_time_avg_seconds.toString())
+                    if (seconds < 60) return `${seconds} seconds`
+                    const minutes = Math.floor(seconds / 60)
+                    const secs = seconds % 60
+                    return `${minutes} minute${minutes !== 1 ? 's' : ''} ${secs} second${secs !== 1 ? 's' : ''}`
+                  })()}
+                </span>
+              ) : 'N/A'}
+            </div>
+            <div><strong>Crash/Error Count:</strong> {selectedDevice.crash_error_count || 0}</div>
+            <div><strong>Last Health Check:</strong> {selectedDevice.last_health_check || 'Never'}</div>
             {selectedDevice.latitude && selectedDevice.longitude && (
               <>
                 <div><strong>Latitude:</strong> {selectedDevice.latitude.toFixed(6)}</div>

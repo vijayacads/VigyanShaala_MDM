@@ -40,8 +40,16 @@ $filesToCopy = @(
 
 foreach ($file in $filesToCopy) {
     if (Test-Path $file) {
-        Copy-Item $file "$OutputPath\osquery-agent\" -Force
-        Write-Host "Copied: $file" -ForegroundColor Green
+        # For PowerShell files, preserve UTF-8 BOM encoding (needed for emojis)
+        if ($file -like "*.ps1") {
+            $content = Get-Content $file -Raw
+            $utf8WithBom = New-Object System.Text.UTF8Encoding $true
+            [System.IO.File]::WriteAllText("$OutputPath\osquery-agent\$file", $content, $utf8WithBom)
+            Write-Host "Copied: $file (with UTF-8 BOM)" -ForegroundColor Green
+        } else {
+            Copy-Item $file "$OutputPath\osquery-agent\" -Force
+            Write-Host "Copied: $file" -ForegroundColor Green
+        }
     } else {
         Write-Warning "File not found: $file"
     }
