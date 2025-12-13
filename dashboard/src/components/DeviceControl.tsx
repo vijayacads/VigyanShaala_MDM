@@ -34,12 +34,17 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
 
   useEffect(() => {
     fetchDevices()
-    fetchCommandHistory()
+    // Only fetch history if we have a selected device
+    if (selectedDevice) {
+      fetchCommandHistory(selectedDevice)
+    }
     
-    // Refresh command history every 5 seconds
-    const interval = setInterval(fetchCommandHistory, 5000)
-    return () => clearInterval(interval)
-  }, [])
+    // Refresh command history every 5 seconds if device is selected
+    if (selectedDevice) {
+      const interval = setInterval(() => fetchCommandHistory(selectedDevice), 5000)
+      return () => clearInterval(interval)
+    }
+  }, [selectedDevice])
 
   useEffect(() => {
     if (selectedDevice) {
@@ -61,18 +66,28 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
     }
   }
 
-  async function fetchCommandHistory() {
+  async function fetchCommandHistory(deviceHostname?: string) {
     try {
-      const { data, error } = await supabase
+      // If deviceHostname provided, filter by it; otherwise show all
+      let query = supabase
         .from('device_commands')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50)
       
+      if (deviceHostname) {
+        // Normalize hostname for consistent matching
+        const normalizedHostname = deviceHostname.trim().toUpperCase()
+        query = query.eq('device_hostname', normalizedHostname)
+      }
+      
+      const { data, error } = await query
+      
       if (error) throw error
       setCommandHistory(data || [])
     } catch (error) {
       console.error('Error fetching command history:', error)
+      setCommandHistory([])
     }
   }
 
@@ -85,7 +100,7 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
     setLoading(true)
     try {
       // Normalize hostnames and build commands with correct schema
-      const commands = Array.from(selectedDevices).map(hostname => {
+      const commands = Array.from(selectedDevices).map((hostname: string) => {
         const normalizedHostname = hostname.trim().toUpperCase()
         const command: any = {
           device_hostname: normalizedHostname,
@@ -135,7 +150,7 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
     setLoading(true)
     try {
       // Normalize hostnames and build commands with correct schema
-      const commands = Array.from(selectedDevices).map(hostname => {
+      const commands = Array.from(selectedDevices).map((hostname: string) => {
         const normalizedHostname = hostname.trim().toUpperCase()
         return {
           device_hostname: normalizedHostname,
