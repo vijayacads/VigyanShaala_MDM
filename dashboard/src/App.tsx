@@ -24,7 +24,7 @@ interface Device {
   os_version: string
   latitude?: number
   longitude?: number
-  serial_number?: string
+  device_imei_number?: string
 }
 
 interface DeviceFilters {

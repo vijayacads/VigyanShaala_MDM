@@ -486,10 +486,10 @@ function Register-DeviceInSupabase {
     }
     
     # Build body exactly matching AddDevice component - NO location_id, NO device ID
+    # Note: serial_number was removed in migration 015, use device_imei_number instead
     $body = @{
         hostname = $deviceData.hostname
         device_inventory_code = if ([string]::IsNullOrWhiteSpace($deviceData.device_inventory_code)) { $null } else { $deviceData.device_inventory_code }
-        serial_number = if ([string]::IsNullOrWhiteSpace($deviceData.serial_number)) { $null } else { $deviceData.serial_number }
         device_imei_number = if ([string]::IsNullOrWhiteSpace($deviceData.device_imei_number)) { $null } else { $deviceData.device_imei_number }
         device_make = if ([string]::IsNullOrWhiteSpace($deviceData.device_make)) { $null } else { $deviceData.device_make }
         host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }

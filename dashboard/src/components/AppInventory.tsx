@@ -19,7 +19,6 @@ interface Device {
   os_version: string
   latitude?: number
   longitude?: number
-  serial_number?: string
   assigned_teacher?: string
   assigned_student_leader?: string
   device_imei_number?: string
@@ -113,7 +112,6 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
           laptop_model,
           latitude,
           longitude,
-          serial_number,
           assigned_teacher,
           assigned_student_leader,
           device_imei_number,
@@ -146,7 +144,7 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
             laptop_model,
             latitude,
             longitude,
-            serial_number,
+            device_imei_number,
             assigned_teacher,
             assigned_student_leader,
             locations(name)
@@ -186,7 +184,6 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
           os_version: d.os_version || 'Unknown',
           latitude: d.latitude,
           longitude: d.longitude,
-          serial_number: d.serial_number,
           assigned_teacher: d.assigned_teacher,
           assigned_student_leader: d.assigned_student_leader,
           device_imei_number: d.device_imei_number || null,
@@ -223,7 +220,7 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
       filtered = filtered.filter(device => 
         device.hostname?.toLowerCase().includes(searchLower) ||
         device.device_inventory_code?.toLowerCase().includes(searchLower) ||
-        device.serial_number?.toLowerCase().includes(searchLower)
+        device.device_imei_number?.toLowerCase().includes(searchLower)
       )
     }
 
@@ -257,7 +254,6 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
     { field: 'host_location', headerName: 'Host Location', sortable: true, filter: true, width: 180 },
     { field: 'location_name', headerName: 'Location', sortable: true, filter: true, width: 150 },
     { field: 'city_town_village', headerName: 'City/Town/Village', sortable: true, filter: true, width: 180 },
-    { field: 'serial_number', headerName: 'Serial Number', sortable: true, filter: true, width: 150 },
     { field: 'assigned_teacher', headerName: 'Assigned Teacher', sortable: true, filter: true, width: 150 },
     { field: 'assigned_student_leader', headerName: 'Student Leader', sortable: true, filter: true, width: 150 },
     { 
@@ -326,7 +322,6 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
         'Host Location': device.host_location || '',
         'Location': device.location_name || '',
         'City/Town/Village': device.city_town_village || '',
-        'Serial Number': device.serial_number || '',
         'Assigned Teacher': device.assigned_teacher || '',
         'Assigned Student Leader': device.assigned_student_leader || '',
         'Compliance Status': device.compliance_status || '',
@@ -472,7 +467,7 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px' }}>
             <div><strong>Inventory Code:</strong> {selectedDevice.device_inventory_code || 'N/A'}</div>
             <div><strong>Hostname:</strong> {selectedDevice.hostname}</div>
-            <div><strong>Serial Number:</strong> {selectedDevice.serial_number || 'N/A'}</div>
+            <div><strong>IMEI Number:</strong> {selectedDevice.device_imei_number || 'N/A'}</div>
             <div><strong>Host Location:</strong> {selectedDevice.host_location || 'N/A'}</div>
             <div><strong>Location:</strong> {selectedDevice.location_name}</div>
             <div><strong>City/Town/Village:</strong> {selectedDevice.city_town_village || 'N/A'}</div>
