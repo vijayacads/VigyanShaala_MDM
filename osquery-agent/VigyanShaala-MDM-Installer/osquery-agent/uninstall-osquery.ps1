@@ -37,7 +37,28 @@ if ($confirm -ne 'Y' -and $confirm -ne 'y') {
 Write-Host ""
 Write-Host "Starting uninstallation..." -ForegroundColor Yellow
 
-# Step 1: Stop and remove osquery service
+# Step 1: Kill any running osquery processes
+Write-Host "Stopping all osquery processes..." -ForegroundColor Yellow
+try {
+    $osqueryProcesses = Get-Process -Name "osquery*" -ErrorAction SilentlyContinue
+    if ($osqueryProcesses) {
+        foreach ($proc in $osqueryProcesses) {
+            try {
+                Stop-Process -Id $proc.Id -Force -ErrorAction Stop
+                Write-Host "Killed process: $($proc.Name) (PID: $($proc.Id))" -ForegroundColor Green
+            } catch {
+                Write-Warning "Could not kill process $($proc.Name): $_"
+            }
+        }
+        Start-Sleep -Seconds 2
+    } else {
+        Write-Host "No running osquery processes found" -ForegroundColor Gray
+    }
+} catch {
+    Write-Warning "Error checking for osquery processes: $_"
+}
+
+# Step 2: Stop and remove osquery service
 $serviceName = "osqueryd"
 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 
@@ -53,17 +74,30 @@ if ($service) {
     
     Write-Host "Removing osquery service..." -ForegroundColor Yellow
     try {
-        & "$InstallDir\osqueryd.exe" --uninstall 2>$null
+        # Try to uninstall service using osqueryd.exe if it exists
+        if (Test-Path "$InstallDir\osqueryd.exe") {
+            & "$InstallDir\osqueryd.exe" --uninstall 2>$null
+        } else {
+            # If exe doesn't exist, try using sc.exe
+            & sc.exe delete $serviceName 2>$null | Out-Null
+        }
         Start-Sleep -Seconds 2
         Write-Host "Service removed" -ForegroundColor Green
     } catch {
         Write-Warning "Service may already be removed or osqueryd.exe not found"
+        # Try alternative method
+        try {
+            & sc.exe delete $serviceName 2>$null | Out-Null
+            Write-Host "Service removed using sc.exe" -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not remove service using sc.exe"
+        }
     }
 } else {
     Write-Host "osquery service not found" -ForegroundColor Gray
 }
 
-# Step 2: Uninstall osquery MSI if installed via Windows Installer
+# Step 3: Uninstall osquery MSI if installed via Windows Installer
 Write-Host "Checking for osquery MSI installation..." -ForegroundColor Yellow
 $osqueryProduct = Get-WmiObject Win32_Product | Where-Object { $_.Name -like "*osquery*" } | Select-Object -First 1
 
@@ -78,7 +112,7 @@ if ($osqueryProduct) {
     }
 }
 
-# Step 3: Remove scheduled tasks
+# Step 4: Remove scheduled tasks
 Write-Host "Removing scheduled tasks..." -ForegroundColor Yellow
 $taskNames = @(
     "VigyanShaala-MDM-SyncWebsiteBlocklist",
@@ -99,7 +133,7 @@ foreach ($taskName in $taskNames) {
     }
 }
 
-# Step 4: Remove installation directory
+# Step 5: Remove installation directory
 if (Test-Path $InstallDir) {
     Write-Host "Removing installation directory..." -ForegroundColor Yellow
     try {
@@ -134,11 +168,15 @@ if (Test-Path $InstallDir) {
     Write-Host "Installation directory not found at: $InstallDir" -ForegroundColor Gray
 }
 
-# Step 4: Remove ProgramData directory
+# Step 6: Remove ProgramData directory and all osquery data
 $programDataDir = "$env:ProgramData\osquery"
 if (Test-Path $programDataDir) {
     Write-Host "Removing ProgramData directory..." -ForegroundColor Yellow
     try {
+        # Kill any processes that might be locking files
+        Get-Process | Where-Object { $_.Path -like "*osquery*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        
         Remove-Item -Path $programDataDir -Recurse -Force -ErrorAction Stop
         Write-Host "ProgramData directory removed" -ForegroundColor Green
     } catch {
@@ -147,7 +185,27 @@ if (Test-Path $programDataDir) {
     }
 }
 
-# Step 5: Remove desktop shortcuts
+# Step 6b: Remove any osquery files from temp directories
+Write-Host "Cleaning up temporary files..." -ForegroundColor Yellow
+$tempPaths = @(
+    "$env:TEMP\osquery*",
+    "$env:LOCALAPPDATA\Temp\osquery*",
+    "$env:ProgramData\Temp\osquery*"
+)
+
+foreach ($tempPath in $tempPaths) {
+    try {
+        $tempItems = Get-ChildItem -Path $tempPath -ErrorAction SilentlyContinue
+        if ($tempItems) {
+            Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "Removed temp files: $tempPath" -ForegroundColor Green
+        }
+    } catch {
+        # Ignore errors for temp file cleanup
+    }
+}
+
+# Step 7: Remove desktop shortcuts
 Write-Host "Removing desktop shortcuts..." -ForegroundColor Yellow
 $desktopShortcuts = @(
     "$env:USERPROFILE\Desktop\VigyanShaala Chat.lnk",
@@ -165,7 +223,7 @@ foreach ($shortcut in $desktopShortcuts) {
     }
 }
 
-# Step 6: Remove website blocklist from hosts file and registry
+# Step 8: Remove website blocklist from hosts file and registry
 Write-Host "Removing website blocklist..." -ForegroundColor Yellow
 try {
     $hostsFile = "$env:SystemRoot\System32\drivers\etc\hosts"
@@ -173,29 +231,83 @@ try {
     $mdmMarkerEnd = "# VigyanShaala-MDM Blocklist End"
     
     if (Test-Path $hostsFile) {
+        # Remove read-only attribute if present
+        $fileInfo = Get-Item $hostsFile -Force -ErrorAction SilentlyContinue
+        if ($fileInfo -and $fileInfo.IsReadOnly) {
+            $fileInfo.IsReadOnly = $false
+            Write-Host "Removed read-only attribute from hosts file" -ForegroundColor Yellow
+        }
+        
         $allLines = Get-Content $hostsFile -ErrorAction SilentlyContinue
         $cleanedLines = @()
         $insideMdmSection = $false
         $foundMdmSection = $false
         
         foreach ($line in $allLines) {
-            if ($line -eq $mdmMarkerStart) {
+            $trimmedLine = $line.Trim()
+            
+            # Check for start marker (handle exact match or with whitespace)
+            if ($trimmedLine -eq $mdmMarkerStart -or $line -match [regex]::Escape($mdmMarkerStart)) {
                 $insideMdmSection = $true
                 $foundMdmSection = $true
                 continue
             }
-            if ($line -eq $mdmMarkerEnd) {
+            
+            # Check for end marker
+            if ($trimmedLine -eq $mdmMarkerEnd -or $line -match [regex]::Escape($mdmMarkerEnd)) {
                 $insideMdmSection = $false
                 continue
             }
+            
+            # Only add lines outside the MDM section
             if (-not $insideMdmSection) {
                 $cleanedLines += $line
             }
         }
         
         if ($foundMdmSection) {
-            $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force
-            Write-Host "Removed MDM blocklist entries from hosts file" -ForegroundColor Green
+            # Write with retry logic in case file is locked
+            $maxRetries = 3
+            $retryCount = 0
+            $writeSuccess = $false
+            
+            while ($retryCount -lt $maxRetries -and -not $writeSuccess) {
+                try {
+                    # Use UTF8 encoding without BOM (Windows hosts file standard)
+                    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                    [System.IO.File]::WriteAllLines($hostsFile, $cleanedLines, $utf8NoBom)
+                    $writeSuccess = $true
+                    Write-Host "Removed MDM blocklist entries from hosts file" -ForegroundColor Green
+                    
+                    # Verify the write worked
+                    Start-Sleep -Milliseconds 500
+                    $verifyContent = Get-Content $hostsFile -Raw -ErrorAction SilentlyContinue
+                    if ($verifyContent -and $verifyContent -match [regex]::Escape($mdmMarkerStart)) {
+                        Write-Warning "WARNING: MDM markers still found in hosts file after removal attempt!"
+                        Write-Host "Attempting alternative removal method..." -ForegroundColor Yellow
+                        # Try Set-Content as fallback
+                        $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force -ErrorAction Stop
+                        Write-Host "Removed using alternative method" -ForegroundColor Green
+                    }
+                } catch {
+                    $retryCount++
+                    if ($retryCount -lt $maxRetries) {
+                        Write-Host "Retry $retryCount/$maxRetries: File may be locked, waiting..." -ForegroundColor Yellow
+                        Start-Sleep -Seconds 2
+                    } else {
+                        # Final attempt with Set-Content
+                        try {
+                            $cleanedLines | Set-Content $hostsFile -Encoding ASCII -Force -ErrorAction Stop
+                            Write-Host "Removed MDM blocklist entries from hosts file (using fallback method)" -ForegroundColor Green
+                            $writeSuccess = $true
+                        } catch {
+                            Write-Warning "Could not write to hosts file after $maxRetries attempts: $_"
+                            Write-Host "Please manually edit $hostsFile and remove the MDM blocklist section" -ForegroundColor Yellow
+                            Write-Host "  Look for lines between: $mdmMarkerStart and $mdmMarkerEnd" -ForegroundColor Yellow
+                        }
+                    }
+                }
+            }
             
             # Flush DNS cache multiple times to ensure it's cleared
             Write-Host "Flushing DNS cache..." -ForegroundColor Cyan
@@ -282,7 +394,7 @@ try {
     Write-Warning "Could not remove website blocklist: $_"
 }
 
-# Step 6b: Remove registry keys that may have been added by prevent-uninstall.ps1 (if it was run)
+# Step 9: Remove registry keys that may have been added by prevent-uninstall.ps1 (if it was run)
 # Only remove the specific keys we may have added, not the entire registry paths
 Write-Host "Checking for additional registry keys..." -ForegroundColor Yellow
 try {
@@ -309,18 +421,78 @@ try {
     Write-Warning "Could not check/remove additional registry keys: $_"
 }
 
-# Step 7: Remove environment variables
-Write-Host "Removing environment variables..." -ForegroundColor Yellow
-try {
-    [Environment]::SetEnvironmentVariable("SUPABASE_URL", $null, "Machine")
-    [Environment]::SetEnvironmentVariable("SUPABASE_ANON_KEY", $null, "Machine")
-    [Environment]::SetEnvironmentVariable("FLEET_SERVER_URL", $null, "Machine")
-    Write-Host "Environment variables removed" -ForegroundColor Green
-} catch {
-    Write-Warning "Could not remove environment variables: $_"
+# Step 10: Remove all osquery-related registry entries
+Write-Host "Removing osquery registry entries..." -ForegroundColor Yellow
+$registryPaths = @(
+    "HKLM:\SOFTWARE\osquery",
+    "HKLM:\SOFTWARE\WOW6432Node\osquery",
+    "HKCU:\SOFTWARE\osquery"
+)
+
+foreach ($regPath in $registryPaths) {
+    if (Test-Path $regPath) {
+        try {
+            Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
+            Write-Host "Removed registry key: $regPath" -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not remove registry key $regPath : $_"
+        }
+    }
 }
 
-# Step 8: Remove device from Supabase (if credentials available)
+# Step 11: Remove any osquery-related Windows Firewall rules
+Write-Host "Removing firewall rules..." -ForegroundColor Yellow
+try {
+    $firewallRules = Get-NetFirewallRule | Where-Object { $_.DisplayName -like "*osquery*" -or $_.DisplayName -like "*VigyanShaala*" }
+    if ($firewallRules) {
+        foreach ($rule in $firewallRules) {
+            try {
+                Remove-NetFirewallRule -Name $rule.Name -ErrorAction Stop
+                Write-Host "Removed firewall rule: $($rule.DisplayName)" -ForegroundColor Green
+            } catch {
+                Write-Warning "Could not remove firewall rule $($rule.DisplayName): $_"
+            }
+        }
+    } else {
+        Write-Host "No osquery firewall rules found" -ForegroundColor Gray
+    }
+} catch {
+    Write-Warning "Could not check/remove firewall rules: $_"
+}
+
+# Step 12: Remove any startup entries
+Write-Host "Removing startup entries..." -ForegroundColor Yellow
+$startupPaths = @(
+    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\*osquery*",
+    "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs\Startup\*osquery*"
+)
+
+foreach ($startupPath in $startupPaths) {
+    try {
+        $startupItems = Get-ChildItem -Path $startupPath -ErrorAction SilentlyContinue
+        if ($startupItems) {
+            Remove-Item -Path $startupPath -Force -ErrorAction SilentlyContinue
+            Write-Host "Removed startup entry: $startupPath" -ForegroundColor Green
+        }
+    } catch {
+        # Ignore errors
+    }
+}
+
+# Step 13: Read environment variables BEFORE removing them (needed for Supabase deletion)
+Write-Host "Reading Supabase credentials..." -ForegroundColor Yellow
+$supabaseUrlFromEnv = [Environment]::GetEnvironmentVariable("SUPABASE_URL", "Machine")
+$supabaseKeyFromEnv = [Environment]::GetEnvironmentVariable("SUPABASE_ANON_KEY", "Machine")
+
+# Use parameters if provided, otherwise use environment variables
+if (-not $SupabaseUrl -or [string]::IsNullOrWhiteSpace($SupabaseUrl)) {
+    $SupabaseUrl = $supabaseUrlFromEnv
+}
+if (-not $SupabaseAnonKey -or [string]::IsNullOrWhiteSpace($SupabaseAnonKey)) {
+    $SupabaseAnonKey = $supabaseKeyFromEnv
+}
+
+# Step 14: Remove device from Supabase (BEFORE removing environment variables)
 if ($SupabaseUrl -and $SupabaseAnonKey) {
     Write-Host ""
     Write-Host "Removing device from Supabase..." -ForegroundColor Yellow
@@ -354,12 +526,83 @@ if ($SupabaseUrl -and $SupabaseAnonKey) {
     Write-Host "      You can remove it manually from the dashboard." -ForegroundColor Yellow
 }
 
+# Step 15: Remove environment variables (AFTER using them for Supabase deletion)
+Write-Host "Removing environment variables..." -ForegroundColor Yellow
+try {
+    [Environment]::SetEnvironmentVariable("SUPABASE_URL", $null, "Machine")
+    [Environment]::SetEnvironmentVariable("SUPABASE_ANON_KEY", $null, "Machine")
+    [Environment]::SetEnvironmentVariable("FLEET_SERVER_URL", $null, "Machine")
+    Write-Host "Environment variables removed" -ForegroundColor Green
+} catch {
+    Write-Warning "Could not remove environment variables: $_"
+}
+
+# Step 16: Final verification and cleanup summary
+Write-Host ""
+Write-Host "Performing final verification..." -ForegroundColor Yellow
+
+$remainingItems = @()
+
+# Check for remaining processes
+$remainingProcesses = Get-Process -Name "osquery*" -ErrorAction SilentlyContinue
+if ($remainingProcesses) {
+    $remainingItems += "Running processes: $($remainingProcesses.Count)"
+}
+
+# Check for remaining service
+$remainingService = Get-Service -Name "osqueryd" -ErrorAction SilentlyContinue
+if ($remainingService) {
+    $remainingItems += "Service still exists"
+}
+
+# Check for remaining directories
+if (Test-Path $InstallDir) {
+    $remainingItems += "Installation directory: $InstallDir"
+}
+if (Test-Path "$env:ProgramData\osquery") {
+    $remainingItems += "ProgramData directory: $env:ProgramData\osquery"
+}
+
+# Check for remaining scheduled tasks
+$remainingTasks = Get-ScheduledTask | Where-Object { $_.TaskName -like "*VigyanShaala*" -or $_.TaskName -like "*osquery*" }
+if ($remainingTasks) {
+    $remainingItems += "Scheduled tasks: $($remainingTasks.Count)"
+}
+
+if ($remainingItems.Count -gt 0) {
+    Write-Host ""
+    Write-Host "WARNING: Some items could not be removed:" -ForegroundColor Yellow
+    foreach ($item in $remainingItems) {
+        Write-Host "  - $item" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    Write-Host "You may need to manually remove these items or restart the computer." -ForegroundColor Yellow
+} else {
+    Write-Host "All items verified as removed" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "Uninstallation Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "osquery agent has been removed from this computer." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Removed components:" -ForegroundColor Cyan
+Write-Host "  ✓ osquery service" -ForegroundColor White
+Write-Host "  ✓ All scheduled tasks" -ForegroundColor White
+Write-Host "  ✓ Installation files and directories" -ForegroundColor White
+Write-Host "  ✓ ProgramData files and logs" -ForegroundColor White
+Write-Host "  ✓ Desktop shortcuts" -ForegroundColor White
+Write-Host "  ✓ Website blocklist entries" -ForegroundColor White
+Write-Host "  ✓ Registry entries" -ForegroundColor White
+Write-Host "  ✓ Environment variables" -ForegroundColor White
+Write-Host "  ✓ Firewall rules" -ForegroundColor White
+Write-Host "  ✓ Startup entries" -ForegroundColor White
+Write-Host "  ✓ Temporary files" -ForegroundColor White
+if ($SupabaseUrl -and $SupabaseAnonKey) {
+    Write-Host "  ✓ Device removed from Supabase" -ForegroundColor White
+}
 Write-Host ""
 
 pause

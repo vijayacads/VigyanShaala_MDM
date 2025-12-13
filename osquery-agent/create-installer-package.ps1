@@ -30,6 +30,8 @@ $filesToCopy = @(
     "apply-software-blocklist.ps1",
     "sync-blocklist-scheduled.ps1",
     "sync-software-blocklist-scheduled.ps1",
+    "send-osquery-data.ps1",
+    "trigger-osquery-queries.ps1",  # For debugging/manual testing
     "execute-commands.ps1",
     "chat-interface.ps1",
     "VigyanShaala_Chat.bat",

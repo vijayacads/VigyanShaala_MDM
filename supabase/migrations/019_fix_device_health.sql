@@ -108,17 +108,18 @@ USING (
 
 -- Step 11: Drop and recreate device update policies (to avoid duplicates)
 -- Use unique names for INSERT and UPDATE policies
+-- Note: service_role bypasses RLS, but we allow anon/authenticated for direct API calls
 DROP POLICY IF EXISTS "Devices can insert their own health" ON device_health;
 DROP POLICY IF EXISTS "Devices can update their own health" ON device_health;
 
 CREATE POLICY "Devices can insert their own health"
 ON device_health FOR INSERT
-TO anon, authenticated
+TO anon, authenticated, service_role
 WITH CHECK (true);
 
 CREATE POLICY "Devices can update their own health"
 ON device_health FOR UPDATE
-TO anon, authenticated
+TO anon, authenticated, service_role
 USING (true)
 WITH CHECK (true);
 

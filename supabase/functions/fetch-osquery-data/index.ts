@@ -15,22 +15,42 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Edge function invoked', { method: req.method, url: req.url })
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     )
 
     const payload = await req.json()
+    console.log('Payload received:', {
+      has_hostname: !!payload.hostname,
+      has_device_health: !!payload.device_health,
+      has_battery_health: !!payload.battery_health,
+      has_system_uptime: !!payload.system_uptime,
+      device_health_count: payload.device_health?.length || 0,
+      battery_health_count: payload.battery_health?.length || 0,
+      system_uptime_count: payload.system_uptime?.length || 0
+    })
 
     // Extract device info from osquery payload
     const hostname = payload.hostname || payload.host?.hostname
 
     if (!hostname) {
+      console.error('Missing device hostname')
       return new Response(
         JSON.stringify({ error: 'Missing device hostname' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    
+    console.log('Looking up device:', hostname)
 
     // Find device by hostname (hostname is now primary key after migration 008)
     const { data: device } = await supabaseClient
@@ -207,6 +227,13 @@ serve(async (req) => {
     if (payload.device_health || payload.battery_health || payload.system_uptime || payload.crash_events) {
       hasData = true
       
+      console.log('Processing device health data:', {
+        has_device_health: !!payload.device_health,
+        has_battery_health: !!payload.battery_health,
+        has_system_uptime: !!payload.system_uptime,
+        has_crash_events: !!payload.crash_events
+      })
+      
       let batteryPercent: number | null = null
       let storageUsedPercent: number | null = null
       let bootTimeSeconds: number | null = null
@@ -250,17 +277,61 @@ serve(async (req) => {
       }
 
       // Upsert health data (performance_status will be calculated by trigger)
-      await supabaseClient
+      // Use service_role client which bypasses RLS
+      const upsertData = {
+        device_hostname: device.hostname,
+        battery_health_percent: batteryPercent,
+        storage_used_percent: storageUsedPercent,
+        boot_time_avg_seconds: bootTimeSeconds,
+        crash_error_count: crashCount
+      }
+      
+      console.log('Attempting to upsert device_health:', upsertData)
+      
+      const { data: healthData, error: healthError } = await supabaseClient
         .from('device_health')
-        .upsert({
+        .upsert(upsertData, {
+          onConflict: 'device_hostname'
+        })
+        .select()
+      
+      if (healthError) {
+        console.error('Error upserting device_health:', JSON.stringify(healthError, null, 2))
+        console.error('Error details:', {
+          message: healthError.message,
+          details: healthError.details,
+          hint: healthError.hint,
+          code: healthError.code
+        })
+      } else {
+        console.log('Device health upserted successfully:', {
           device_hostname: device.hostname,
           battery_health_percent: batteryPercent,
           storage_used_percent: storageUsedPercent,
           boot_time_avg_seconds: bootTimeSeconds,
-          crash_error_count: crashCount
-        }, {
-          onConflict: 'device_hostname'
+          crash_error_count: crashCount,
+          returned_data: healthData,
+          returned_count: healthData?.length || 0
         })
+        
+        // Verify the data was actually stored by querying it back
+        if (!healthData || healthData.length === 0) {
+          console.warn('WARNING: Upsert returned no data. Verifying with separate query...')
+          const { data: verifyData, error: verifyError } = await supabaseClient
+            .from('device_health')
+            .select('*')
+            .eq('device_hostname', device.hostname)
+            .single()
+          
+          if (verifyError) {
+            console.error('Verification query failed:', verifyError)
+          } else if (verifyData) {
+            console.log('Verification successful - data exists:', verifyData)
+          } else {
+            console.error('CRITICAL: Data was not stored despite successful upsert!')
+          }
+        }
+      }
     }
 
     // Process browser history

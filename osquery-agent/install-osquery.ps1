@@ -4,7 +4,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$OsqueryMsi = "osquery-5.11.0.msi",
+    [string]$OsqueryMsi = "osquery-5.20.0.msi",  # Latest stable version (Dec 2025) - supports battery table on Windows
     
     [Parameter(Mandatory=$false)]
     [string]$SupabaseUrl,
@@ -80,7 +80,16 @@ if ($FleetUrl) {
     Write-Host "Set FLEET_SERVER_URL environment variable" -ForegroundColor Green
 }
 
-# Step 5: Install osquery service (if not already installed)
+# Step 5: Create log directory (required for osquery to write logs)
+$logDir = "C:\ProgramData\osquery\logs"
+if (-not (Test-Path $logDir)) {
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    Write-Host "Created log directory: $logDir" -ForegroundColor Green
+} else {
+    Write-Host "Log directory exists: $logDir" -ForegroundColor Green
+}
+
+# Step 6: Install osquery service (if not already installed)
 $serviceName = "osqueryd"
 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 
@@ -90,15 +99,20 @@ if (-not $service) {
     Start-Sleep -Seconds 2
 }
 
-# Step 6: Start osquery service
+# Step 7: Set osquery service to auto-start and start it
 try {
+    # Set service to automatic startup
+    Set-Service -Name $serviceName -StartupType Automatic -ErrorAction Stop
+    Write-Host "osquery service set to auto-start" -ForegroundColor Green
+    
+    # Start the service
     Start-Service -Name $serviceName -ErrorAction Stop
     Write-Host "osquery service started" -ForegroundColor Green
 } catch {
-    Write-Warning "Could not start osquery service: $_"
+    Write-Warning "Could not configure/start osquery service: $_"
 }
 
-# Step 7: Run enrollment wizard (if environment variables are set)
+# Step 8: Run enrollment wizard (if environment variables are set)
 if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "`nStarting enrollment wizard..." -ForegroundColor Cyan
     Start-Sleep -Seconds 2
@@ -118,7 +132,7 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "Run enroll-device.ps1 manually after setting environment variables" -ForegroundColor Yellow
 }
 
-# Step 8: Apply initial blocklists and create sync tasks
+# Step 9: Apply initial blocklists and create sync tasks
 if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "`nApplying blocklists..." -ForegroundColor Cyan
     
@@ -149,11 +163,13 @@ if ($SupabaseUrl -and $SupabaseKey) {
         -Argument "-ExecutionPolicy Bypass -File `"$websiteSyncScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
     $websiteTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30) -RepetitionDuration (New-TimeSpan -Days 365)
     $websiteTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $websiteTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
     
     try {
-        Unregister-ScheduledTask -TaskName $websiteTaskName -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName $websiteTaskName -Action $websiteTaskAction -Trigger $websiteTaskTrigger -Principal $websiteTaskPrincipal -Description "Sync website blocklist from MDM server" -Force | Out-Null
-        Write-Host "Website blocklist sync task created (runs every 30 minutes)" -ForegroundColor Green
+        Unregister-ScheduledTask -TaskName $websiteTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        $task = Register-ScheduledTask -TaskName $websiteTaskName -Action $websiteTaskAction -Trigger $websiteTaskTrigger -Principal $websiteTaskPrincipal -Settings $websiteTaskSettings -Description "Sync website blocklist from MDM server" -Force
+        Enable-ScheduledTask -TaskName $websiteTaskName
+        Write-Host "Website blocklist sync task created and enabled (runs every 30 minutes)" -ForegroundColor Green
     } catch {
         Write-Warning "Could not create website blocklist sync task: $_"
     }
@@ -185,11 +201,13 @@ if ($SupabaseUrl -and $SupabaseKey) {
         -Argument "-ExecutionPolicy Bypass -File `"$softwareSyncScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
     $softwareTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 365)
     $softwareTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $softwareTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
     
     try {
-        Unregister-ScheduledTask -TaskName $softwareTaskName -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName $softwareTaskName -Action $softwareTaskAction -Trigger $softwareTaskTrigger -Principal $softwareTaskPrincipal -Description "Check and remove blocked software from MDM server" -Force | Out-Null
-        Write-Host "Software blocklist sync task created (runs every hour)" -ForegroundColor Green
+        Unregister-ScheduledTask -TaskName $softwareTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        $task = Register-ScheduledTask -TaskName $softwareTaskName -Action $softwareTaskAction -Trigger $softwareTaskTrigger -Principal $softwareTaskPrincipal -Settings $softwareTaskSettings -Description "Check and remove blocked software from MDM server" -Force
+        Enable-ScheduledTask -TaskName $softwareTaskName
+        Write-Host "Software blocklist sync task created and enabled (runs every hour)" -ForegroundColor Green
     } catch {
         Write-Warning "Could not create software blocklist sync task: $_"
     }
@@ -201,18 +219,35 @@ if ($SupabaseUrl -and $SupabaseKey) {
     $sendDataScript = "$InstallDir\send-osquery-data.ps1"
     if (Test-Path "send-osquery-data.ps1") {
         Copy-Item "send-osquery-data.ps1" $sendDataScript -Force
+        Write-Host "send-osquery-data.ps1 copied" -ForegroundColor Green
+    } else {
+        Write-Warning "send-osquery-data.ps1 not found in current directory - task may fail"
     }
     
     $dataTaskName = "VigyanShaala-MDM-SendOsqueryData"
     $dataTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
         -Argument "-ExecutionPolicy Bypass -File `"$sendDataScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+    
+    # Create trigger that runs every 5 minutes, starting now
     $dataTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 365)
+    
+    # Use SYSTEM account to run regardless of logged-in user
     $dataTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
     
+    # Create settings to ensure task runs even when user is not logged in
+    $dataTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RunOnlyIfNetworkAvailable:$false
+    
     try {
-        Unregister-ScheduledTask -TaskName $dataTaskName -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName $dataTaskName -Action $dataTaskAction -Trigger $dataTaskTrigger -Principal $dataTaskPrincipal -Description "Send osquery data to MDM server every 5 minutes" -Force | Out-Null
-        Write-Host "Data sending task created (runs every 5 minutes)" -ForegroundColor Green
+        # Remove existing task if it exists
+        Unregister-ScheduledTask -TaskName $dataTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        
+        # Register the task
+        $task = Register-ScheduledTask -TaskName $dataTaskName -Action $dataTaskAction -Trigger $dataTaskTrigger -Principal $dataTaskPrincipal -Settings $dataTaskSettings -Description "Send osquery data to MDM server every 5 minutes" -Force
+        
+        # Explicitly enable the task (runs regardless of user login)
+        Enable-ScheduledTask -TaskName $dataTaskName
+        
+        Write-Host "Data sending task created and enabled (runs every 5 minutes, regardless of user login)" -ForegroundColor Green
     } catch {
         Write-Warning "Could not create data sending task: $_"
     }
@@ -231,11 +266,13 @@ if ($SupabaseUrl -and $SupabaseKey) {
         -Argument "-ExecutionPolicy Bypass -File `"$commandScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`""
     $commandTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 365)
     $commandTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $commandTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
     
     try {
-        Unregister-ScheduledTask -TaskName $commandTaskName -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName $commandTaskName -Action $commandTaskAction -Trigger $commandTaskTrigger -Principal $commandTaskPrincipal -Description "Process MDM commands and messages every 1 minute" -Force | Out-Null
-        Write-Host "Command processor task created (runs every 1 minute)" -ForegroundColor Green
+        Unregister-ScheduledTask -TaskName $commandTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        $task = Register-ScheduledTask -TaskName $commandTaskName -Action $commandTaskAction -Trigger $commandTaskTrigger -Principal $commandTaskPrincipal -Settings $commandTaskSettings -Description "Process MDM commands and messages every 1 minute" -Force
+        Enable-ScheduledTask -TaskName $commandTaskName
+        Write-Host "Command processor task created and enabled (runs every 1 minute)" -ForegroundColor Green
     } catch {
         Write-Warning "Could not create command processor task: $_"
     }
