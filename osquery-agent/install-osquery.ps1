@@ -234,8 +234,8 @@ if ($SupabaseUrl -and $SupabaseKey) {
     
     try {
         Unregister-ScheduledTask -TaskName $commandTaskName -ErrorAction SilentlyContinue
-        Register-ScheduledTask -TaskName $commandTaskName -Action $commandTaskAction -Trigger $commandTaskTrigger -Principal $commandTaskPrincipal -Description "Process MDM commands and messages every 30 seconds" -Force | Out-Null
-        Write-Host "Command processor task created (runs every 30 seconds)" -ForegroundColor Green
+        Register-ScheduledTask -TaskName $commandTaskName -Action $commandTaskAction -Trigger $commandTaskTrigger -Principal $commandTaskPrincipal -Description "Process MDM commands and messages every 1 minute" -Force | Out-Null
+        Write-Host "Command processor task created (runs every 1 minute)" -ForegroundColor Green
     } catch {
         Write-Warning "Could not create command processor task: $_"
     }
