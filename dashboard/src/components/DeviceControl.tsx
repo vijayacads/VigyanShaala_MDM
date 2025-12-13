@@ -11,10 +11,12 @@ interface DeviceCommand {
   id: string
   device_hostname: string
   command_type: string
-  command_data?: any
+  message?: string
+  duration?: number
   status: 'pending' | 'completed' | 'failed' | 'dismissed' | 'expired'
   created_at: string
-  completed_at?: string
+  executed_at?: string
+  error_message?: string
 }
 
 interface DeviceControlProps {
@@ -82,12 +84,22 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
 
     setLoading(true)
     try {
-      const commands = Array.from(selectedDevices).map(hostname => ({
-        device_hostname: hostname,
-        command_type: commandType,
-        command_data: commandData || {},
-        status: 'pending'
-      }))
+      // Normalize hostnames and build commands with correct schema
+      const commands = Array.from(selectedDevices).map(hostname => {
+        const normalizedHostname = hostname.trim().toUpperCase()
+        const command: any = {
+          device_hostname: normalizedHostname,
+          command_type: commandType,
+          status: 'pending'
+        }
+        
+        // Add duration for buzz command
+        if (commandType === 'buzz' && commandData?.duration) {
+          command.duration = commandData.duration
+        }
+        
+        return command
+      })
 
       const { error } = await supabase
         .from('device_commands')
@@ -96,7 +108,10 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
       if (error) throw error
 
       // Refresh history
-      await fetchCommandHistory()
+      const firstDevice = Array.from(selectedDevices)[0]
+      if (firstDevice) {
+        await fetchCommandHistory(firstDevice.trim().toUpperCase())
+      }
       alert(`Command sent to ${selectedDevices.size} device(s)`)
     } catch (error) {
       console.error('Error sending command:', error)
@@ -119,12 +134,16 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
 
     setLoading(true)
     try {
-      const commands = Array.from(selectedDevices).map(hostname => ({
-        device_hostname: hostname,
-        command_type: 'broadcast',
-        command_data: { message: broadcastMessage },
-        status: 'pending'
-      }))
+      // Normalize hostnames and build commands with correct schema
+      const commands = Array.from(selectedDevices).map(hostname => {
+        const normalizedHostname = hostname.trim().toUpperCase()
+        return {
+          device_hostname: normalizedHostname,
+          command_type: 'broadcast_message',
+          message: broadcastMessage.trim(),
+          status: 'pending'
+        }
+      })
 
       const { error } = await supabase
         .from('device_commands')
@@ -133,7 +152,10 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
       if (error) throw error
 
       // Refresh history
-      await fetchCommandHistory()
+      const firstDevice = Array.from(selectedDevices)[0]
+      if (firstDevice) {
+        await fetchCommandHistory(firstDevice.trim().toUpperCase())
+      }
       setBroadcastMessage('')
       alert(`Broadcast sent to ${selectedDevices.size} device(s)`)
     } catch (error) {
