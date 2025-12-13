@@ -98,14 +98,14 @@ $form.Controls.Add($tabControl)
 
 # Chat Tab - With emoji
 $chatTab = New-Object System.Windows.Forms.TabPage
-$chatTab.Text = "💬 Chat"
+$chatTab.Text = [char]0x1F4AC + " Chat"  # 💬
 $chatTab.BackColor = $White
 $chatTab.Padding = New-Object System.Windows.Forms.Padding(10)
 $tabControl.TabPages.Add($chatTab)
 
 # Broadcast Messages Tab - With emoji
 $broadcastTab = New-Object System.Windows.Forms.TabPage
-$broadcastTab.Text = "📢 Broadcast Messages"
+$broadcastTab.Text = [char]0x1F4E2 + " Broadcast Messages"  # 📢
 $broadcastTab.BackColor = $White
 $broadcastTab.Padding = New-Object System.Windows.Forms.Padding(10)
 $tabControl.TabPages.Add($broadcastTab)
@@ -140,7 +140,7 @@ $inputPanel.Controls.Add($chatInputBox)
 $chatSendButton = New-Object System.Windows.Forms.Button
 $chatSendButton.Location = New-Object System.Drawing.Point(620, 10)
 $chatSendButton.Size = New-Object System.Drawing.Size(110, 40)
-$chatSendButton.Text = "📤 Send"
+$chatSendButton.Text = [char]0x1F4E4 + " Send"  # 📤
 $chatSendButton.BackColor = $PrimaryGreen
 $chatSendButton.ForeColor = $White
 $chatSendButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -163,7 +163,7 @@ $broadcastTab.Controls.Add($broadcastMessageBox)
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.Location = New-Object System.Drawing.Point(15, 665)
 $statusLabel.Size = New-Object System.Drawing.Size(770, 25)
-$statusLabel.Text = "🟢 Connected"
+$statusLabel.Text = [char]0x1F7E2 + " Connected"  # 🟢
 $statusLabel.ForeColor = $PrimaryGreen
 $statusLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $statusLabel.BackColor = $LightBg
@@ -178,8 +178,8 @@ function Format-Message {
         [bool]$IsBroadcast = $false
     )
     
-    $prefix = if ($IsBroadcast) { "📢 [BROADCAST]" } else { "" }
-    $senderIcon = if ($Sender -eq "Support") { "👨‍💼" } else { "👤" }
+    $prefix = if ($IsBroadcast) { ([char]0x1F4E2 + " [BROADCAST]") } else { "" }  # 📢
+    $senderIcon = if ($Sender -eq "Support") { ([char]0x1F468 + [char]0x200D + [char]0x1F4BC) } else { [char]0x1F464 }  # 👨‍💼 or 👤
     
     $formatted = "[$Time] $prefix $senderIcon $Sender`: $Message`r`n"
     return $formatted
@@ -193,7 +193,10 @@ function Load-ChatMessages {
     }
     
     try {
-        $url = "$SupabaseUrl/rest/v1/chat_messages?device_hostname=eq.$DeviceHostname&order=timestamp.asc"
+        # Build URL with proper escaping for PowerShell 7+ compatibility
+        $baseUrl = "$SupabaseUrl/rest/v1/chat_messages"
+        $queryParams = "device_hostname=eq.$DeviceHostname&order=timestamp.asc"
+        $url = "$baseUrl" + "?" + $queryParams
         $messages = Invoke-RestMethod -Uri $url -Method GET -Headers $headers
         
         $chatMessageBox.Clear()
@@ -205,12 +208,12 @@ function Load-ChatMessages {
                 $chatMessageBox.AppendText($formatted)
             }
         } else {
-            $chatMessageBox.AppendText("💬 No messages yet. Start a conversation!`r`n")
+            $chatMessageBox.AppendText([char]0x1F4AC + " No messages yet. Start a conversation!`r`n")  # 💬
             $chatMessageBox.SelectionColor = $PrimaryBlue
         }
         $chatMessageBox.SelectionStart = $chatMessageBox.Text.Length
         $chatMessageBox.ScrollToCaret()
-        $statusLabel.Text = "🟢 Connected - Ready to chat"
+        $statusLabel.Text = [char]0x1F7E2 + " Connected - Ready to chat"  # 🟢
         $statusLabel.ForeColor = $PrimaryGreen
     } catch {
         $statusLabel.Text = "❌ Error loading messages: $_"
@@ -226,7 +229,10 @@ function Load-BroadcastMessages {
     }
     
     try {
-        $url = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname&command_type=eq.broadcast_message&order=created_at.desc&limit=50"
+        # Build URL with proper escaping for PowerShell 7+ compatibility
+        $baseUrl = "$SupabaseUrl/rest/v1/device_commands"
+        $queryParams = "device_hostname=eq.$DeviceHostname&command_type=eq.broadcast_message&order=created_at.desc&limit=50"
+        $url = "$baseUrl" + "?" + $queryParams
         $messages = Invoke-RestMethod -Uri $url -Method GET -Headers $headers
         
         $broadcastMessageBox.Clear()
@@ -236,17 +242,17 @@ function Load-BroadcastMessages {
                     $time = [DateTime]::Parse($msg.created_at).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
                     $status = $msg.status
                     $statusIcon = switch ($status) {
-                        "pending" { "⏳" }
-                        "dismissed" { "✓" }
-                        "expired" { "⏰" }
-                        default { "🔔" }
+                        "pending" { [char]0x23F3 }  # ⏳
+                        "dismissed" { [char]0x2713 }  # ✓
+                        "expired" { [char]0x23F0 }  # ⏰
+                        default { [char]0x1F514 }  # 🔔
                     }
                     $formatted = "[$time] $statusIcon $($msg.message)`r`n"
                     $broadcastMessageBox.AppendText($formatted)
                 }
             }
         } else {
-            $broadcastMessageBox.AppendText("📢 No broadcast messages yet.`r`n")
+            $broadcastMessageBox.AppendText([char]0x1F4E2 + " No broadcast messages yet.`r`n")  # 📢
             $broadcastMessageBox.SelectionColor = $PrimaryBlue
         }
         $broadcastMessageBox.SelectionStart = $broadcastMessageBox.Text.Length
