@@ -163,10 +163,14 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
 
       // Fetch health data for devices
       const hostnames = (data || []).map((d: any) => d.hostname)
-      const { data: healthData } = await supabase
+      const { data: healthData, error: healthError } = await supabase
         .from('device_health')
-        .select('device_hostname, performance_status, device_status, last_login_date, battery_health_percent, storage_used_percent, boot_time_avg_seconds, crash_error_count, last_health_check')
+        .select('device_hostname, performance_status, battery_health_percent, storage_used_percent, boot_time_avg_seconds, crash_error_count, updated_at')
         .in('device_hostname', hostnames)
+      
+      if (healthError) {
+        console.error('Error fetching device health:', healthError)
+      }
 
       const healthMap = new Map((healthData || []).map((h: any) => [h.device_hostname, h]))
 
@@ -192,13 +196,13 @@ export default function AppInventory({ locationId, searchText = '', cityFilter =
           issue_date: d.issue_date || null,
           wifi_ssid: d.wifi_ssid || null,
           performance_status: health?.performance_status || 'unknown',
-          device_status: health?.device_status || 'unknown',
-          last_login_date: health?.last_login_date || null,
+          device_status: 'unknown', // Not in device_health table
+          last_login_date: null, // Not in device_health table
           battery_health_percent: health?.battery_health_percent || null,
           storage_used_percent: health?.storage_used_percent || null,
           boot_time_avg_seconds: health?.boot_time_avg_seconds || null,
           crash_error_count: health?.crash_error_count || 0,
-          last_health_check: health?.last_health_check ? new Date(health.last_health_check).toLocaleString() : 'Never'
+          last_health_check: health?.updated_at ? new Date(health.updated_at).toLocaleString() : 'Never'
         }
       })
 

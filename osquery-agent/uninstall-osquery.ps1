@@ -153,7 +153,7 @@ if (Test-Path $InstallDir) {
             } catch {
                 $retryCount++
                 if ($retryCount -lt $maxRetries) {
-                    Write-Host "Retrying removal (attempt $retryCount/$maxRetries)..." -ForegroundColor Yellow
+                    Write-Host "Retrying removal (attempt $($retryCount)/$($maxRetries))..." -ForegroundColor Yellow
                     Start-Sleep -Seconds 2
                 } else {
                     Write-Warning "Could not remove directory: $_"
@@ -292,7 +292,7 @@ try {
                 } catch {
                     $retryCount++
                     if ($retryCount -lt $maxRetries) {
-                        Write-Host "Retry $retryCount/$maxRetries: File may be locked, waiting..." -ForegroundColor Yellow
+                        Write-Host "Retry $($retryCount)/$($maxRetries): File may be locked, waiting..." -ForegroundColor Yellow
                         Start-Sleep -Seconds 2
                     } else {
                         # Final attempt with Set-Content

@@ -298,7 +298,26 @@ if ($SupabaseUrl -and $SupabaseKey) {
     @"
 @echo off
 cd /d "$InstallDir"
-powershell.exe -ExecutionPolicy Bypass -File "chat-interface.ps1"
+
+REM Get environment variables from system
+set SUPABASE_URL=%SUPABASE_URL%
+set SUPABASE_KEY=%SUPABASE_ANON_KEY%
+
+REM Check if script exists
+if not exist "chat-interface.ps1" (
+    echo ERROR: chat-interface.ps1 not found!
+    pause
+    exit /b 1
+)
+
+REM Run PowerShell script with error handling
+powershell.exe -ExecutionPolicy Bypass -NoExit -File "chat-interface.ps1" -SupabaseUrl "%SUPABASE_URL%" -SupabaseKey "%SUPABASE_KEY%"
+
+if errorlevel 1 (
+    echo.
+    echo ERROR: Chat interface failed to start.
+    pause
+)
 "@ | Out-File $launcherPath -Encoding ASCII -Force
     Write-Host "Chat launcher created" -ForegroundColor Green
     
