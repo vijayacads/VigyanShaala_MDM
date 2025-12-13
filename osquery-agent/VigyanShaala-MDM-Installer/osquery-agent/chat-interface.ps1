@@ -89,13 +89,13 @@ $form.Controls.Add($tabControl)
 
 # Chat Tab
 $chatTab = New-Object System.Windows.Forms.TabPage
-$chatTab.Text = "💬 Chat"
+$chatTab.Text = "Chat"
 $chatTab.BackColor = [System.Drawing.Color]::White
 $tabControl.TabPages.Add($chatTab)
 
 # Broadcast Messages Tab
 $broadcastTab = New-Object System.Windows.Forms.TabPage
-$broadcastTab.Text = "📢 Broadcast Messages"
+$broadcastTab.Text = "Broadcast Messages"
 $broadcastTab.BackColor = [System.Drawing.Color]::White
 $tabControl.TabPages.Add($broadcastTab)
 
@@ -155,7 +155,7 @@ function Format-Message {
         [bool]$IsBroadcast = $false
     )
     
-    $prefix = if ($IsBroadcast) { "📢 [BROADCAST]" } else { "" }
+    $prefix = if ($IsBroadcast) { "[BROADCAST] " } else { "" }
     
     $formatted = "[$Time] $prefix $Sender`: $Message`r`n"
     return $formatted
@@ -204,13 +204,13 @@ function Load-BroadcastMessages {
                 if ($msg.message) {
                     $time = [DateTime]::Parse($msg.created_at).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
                     $status = $msg.status
-                    $statusColor = switch ($status) {
-                        "pending" { "⏳" }
-                        "dismissed" { "✓" }
-                        "expired" { "⏰" }
-                        default { "•" }
+                    $statusIcon = switch ($status) {
+                        "pending" { "[PENDING]" }
+                        "dismissed" { "[DISMISSED]" }
+                        "expired" { "[EXPIRED]" }
+                        default { "[NEW]" }
                     }
-                    $formatted = "[$time] $statusColor $($msg.message)`r`n"
+                    $formatted = "[$time] $statusIcon $($msg.message)`r`n"
                     $broadcastMessageBox.AppendText($formatted)
                 }
             }
