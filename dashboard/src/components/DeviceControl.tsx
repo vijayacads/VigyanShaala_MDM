@@ -31,15 +31,17 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
   const [selectedBroadcastDevices, setSelectedBroadcastDevices] = useState<string[]>([])
   const [deviceSearchQuery, setDeviceSearchQuery] = useState('')
   const [localSelectedDevice, setLocalSelectedDevice] = useState<string | null>(selectedDevice || null)
+  const [selectedControlDevices, setSelectedControlDevices] = useState<string[]>([])
+  const [controlDeviceSearchQuery, setControlDeviceSearchQuery] = useState('')
 
   useEffect(() => {
     fetchDevices()
     fetchLocations()
-    const deviceToUse = selectedDevice || localSelectedDevice
+    const deviceToUse = selectedDevice || localSelectedDevice || selectedControlDevices[0]
     if (deviceToUse) {
       fetchCommandHistory(deviceToUse)
     }
-  }, [selectedDevice, localSelectedDevice])
+  }, [selectedDevice, localSelectedDevice, selectedControlDevices])
 
   async function fetchDevices() {
     try {
@@ -107,41 +109,46 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
     }
   }
 
-  async function sendCommand(commandType: 'lock' | 'unlock' | 'clear_cache' | 'buzz', deviceHostname: string) {
-    if (!deviceHostname) {
-      alert('Please select a device')
+  async function sendCommand(commandType: 'lock' | 'unlock' | 'clear_cache' | 'buzz', deviceHostnames: string | string[]) {
+    const targetDevices = Array.isArray(deviceHostnames) ? deviceHostnames : [deviceHostnames]
+    
+    if (targetDevices.length === 0) {
+      alert('Please select at least one device')
       return
     }
 
-    if (!confirm(`Are you sure you want to ${commandType} device ${deviceHostname}?`)) {
+    const deviceList = targetDevices.length === 1 
+      ? targetDevices[0] 
+      : `${targetDevices.length} devices`
+    
+    if (!confirm(`Are you sure you want to ${commandType} ${deviceList}?`)) {
       return
     }
 
     setLoading(true)
     try {
-      // Normalize hostname: trim and convert to uppercase for consistent matching
-      const normalizedHostname = deviceHostname.trim().toUpperCase()
-      const commandData: any = {
-        device_hostname: normalizedHostname,
-        command_type: commandType,
-        status: 'pending'
-      }
-
-      if (commandType === 'buzz') {
-        commandData.duration = buzzDuration
-      }
+      // Send command to all selected devices
+      const commands = targetDevices.map(hostname => {
+        const normalizedHostname = hostname.trim().toUpperCase()
+        return {
+          device_hostname: normalizedHostname,
+          command_type: commandType,
+          status: 'pending' as const,
+          ...(commandType === 'buzz' && { duration: buzzDuration })
+        }
+      })
 
       const { error } = await supabase
         .from('device_commands')
-        .insert([commandData])
+        .insert(commands)
 
       if (error) throw error
 
-      alert(`Command sent successfully! Device will execute ${commandType} command.`)
-      // Refresh command history if this device is selected
-      const deviceToUse = selectedDevice || localSelectedDevice
-      if (deviceHostname === deviceToUse) {
-        setTimeout(() => fetchCommandHistory(deviceHostname), 1000)
+      alert(`Command sent successfully! ${targetDevices.length} device(s) will execute ${commandType} command.`)
+      // Refresh command history if viewing one of the target devices
+      const deviceToUse = selectedDevice || localSelectedDevice || selectedControlDevices[0]
+      if (deviceToUse && targetDevices.includes(deviceToUse)) {
+        setTimeout(() => fetchCommandHistory(deviceToUse), 1000)
       }
     } catch (error: any) {
       console.error('Error sending command:', error)
@@ -203,6 +210,13 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
            device.device_inventory_code?.toLowerCase().includes(query)
   })
 
+  const filteredControlDevices = devices.filter(device => {
+    if (!controlDeviceSearchQuery.trim()) return true
+    const query = controlDeviceSearchQuery.toLowerCase()
+    return device.hostname?.toLowerCase().includes(query) ||
+           device.device_inventory_code?.toLowerCase().includes(query)
+  })
+
   const handleSelectAll = () => {
     if (filteredDevices.length === 0) return
     if (selectedBroadcastDevices.length === filteredDevices.length && 
@@ -221,7 +235,37 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
     )
   }
 
-  const targetDevice = selectedDevice || localSelectedDevice || devices[0]?.hostname
+  const handleControlSelectAll = () => {
+    if (filteredControlDevices.length === 0) return
+    if (selectedControlDevices.length === filteredControlDevices.length && 
+        filteredControlDevices.every(d => selectedControlDevices.includes(d.hostname))) {
+      setSelectedControlDevices([])
+      setCommandHistory([])
+    } else {
+      const newSelection = filteredControlDevices.map(d => d.hostname)
+      setSelectedControlDevices(newSelection)
+      if (newSelection.length > 0) {
+        fetchCommandHistory(newSelection[0])
+      }
+    }
+  }
+
+  const handleControlDeviceToggle = (hostname: string) => {
+    setSelectedControlDevices(prev => {
+      const newSelection = prev.includes(hostname)
+        ? prev.filter(h => h !== hostname)
+        : [...prev, hostname]
+      // Update command history to show first selected device
+      if (newSelection.length > 0) {
+        fetchCommandHistory(newSelection[0])
+      } else {
+        setCommandHistory([])
+      }
+      return newSelection
+    })
+  }
+
+  const targetDevice = selectedDevice || localSelectedDevice || selectedControlDevices[0] || devices[0]?.hostname
 
   return (
     <div className="device-control-container">
@@ -229,50 +273,67 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
 
       {/* Device Selection */}
       <div className="control-section">
-        <h3>Select Device</h3>
-        <select
-          value={selectedDevice || localSelectedDevice || ''}
-          onChange={(e) => {
-            const hostname = e.target.value
-            setLocalSelectedDevice(hostname || null)
-            if (hostname) {
-              fetchCommandHistory(hostname)
-            } else {
-              setCommandHistory([])
-            }
-          }}
-          className="device-select"
-        >
-          <option value="">-- Select Device --</option>
-          {devices.map(device => (
-            <option key={device.hostname} value={device.hostname}>
-              {device.hostname} {device.device_inventory_code ? `(${device.device_inventory_code})` : ''}
-            </option>
-          ))}
-        </select>
+        <h3>Select Device(s) for Control</h3>
+        <div className="device-selection-container">
+          <div className="device-search-header">
+            <input
+              type="text"
+              placeholder="🔍 Search devices by name or inventory code..."
+              value={controlDeviceSearchQuery}
+              onChange={(e) => setControlDeviceSearchQuery(e.target.value)}
+              className="device-search-input"
+            />
+            <button onClick={handleControlSelectAll} className="select-all-btn">
+              {selectedControlDevices.length === filteredControlDevices.length && filteredControlDevices.length > 0
+                ? 'Deselect All' 
+                : 'Select All'} ({selectedControlDevices.length}/{filteredControlDevices.length})
+            </button>
+          </div>
+          <div className="device-list-multiselect">
+            {filteredControlDevices.length === 0 ? (
+              <p className="no-devices">No devices found matching your search.</p>
+            ) : (
+              filteredControlDevices.map(device => (
+                <label key={device.hostname} className="device-multiselect-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedControlDevices.includes(device.hostname)}
+                    onChange={() => handleControlDeviceToggle(device.hostname)}
+                  />
+                  <span>{device.hostname} {device.device_inventory_code ? `(${device.device_inventory_code})` : ''}</span>
+                </label>
+              ))
+            )}
+          </div>
+          {selectedControlDevices.length > 0 && (
+            <div className="selected-count">
+              {selectedControlDevices.length} device(s) selected
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Device Control Buttons */}
-      {targetDevice && (
+      {selectedControlDevices.length > 0 && (
         <div className="control-section">
           <h3>Device Controls</h3>
           <div className="control-buttons">
             <button
-              onClick={() => sendCommand('lock', targetDevice)}
+              onClick={() => sendCommand('lock', selectedControlDevices)}
               disabled={loading}
               className="control-btn lock-btn"
             >
-              🔒 Lock Device
+              🔒 Lock Device{selectedControlDevices.length > 1 ? 's' : ''}
             </button>
             <button
-              onClick={() => sendCommand('unlock', targetDevice)}
+              onClick={() => sendCommand('unlock', selectedControlDevices)}
               disabled={loading}
               className="control-btn unlock-btn"
             >
-              🔓 Unlock Device
+              🔓 Unlock Device{selectedControlDevices.length > 1 ? 's' : ''}
             </button>
             <button
-              onClick={() => sendCommand('clear_cache', targetDevice)}
+              onClick={() => sendCommand('clear_cache', selectedControlDevices)}
               disabled={loading}
               className="control-btn cache-btn"
             >
@@ -280,21 +341,21 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
             </button>
             <div className="buzz-control">
               <button
-                onClick={() => sendCommand('buzz', targetDevice)}
+                onClick={() => sendCommand('buzz', selectedControlDevices)}
                 disabled={loading}
                 className="control-btn buzz-btn"
               >
-                🔊 Buzz Device
+                🔊 Buzz Device{selectedControlDevices.length > 1 ? 's' : ''}
               </button>
               <select
                 value={buzzDuration}
                 onChange={(e) => setBuzzDuration(parseInt(e.target.value))}
                 className="duration-select"
               >
-                <option value={5}>5 seconds</option>
-                <option value={10}>10 seconds</option>
-                <option value={15}>15 seconds</option>
-                <option value={30}>30 seconds</option>
+                <option value={3}>3 sec</option>
+                <option value={5}>5 sec</option>
+                <option value={10}>10 sec</option>
+                <option value={15}>15 sec</option>
               </select>
             </div>
           </div>

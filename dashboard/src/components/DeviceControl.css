@@ -276,3 +276,37 @@
   background: #f3f4f6;
   color: #6b7280;
 }
+
+.device-list-multiselect {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  padding: 0.5rem;
+}
+
+.device-multiselect-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.device-multiselect-item:hover {
+  background: #f3f4f6;
+}
+
+.device-multiselect-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.device-multiselect-item span {
+  flex: 1;
+  user-select: none;
+}
