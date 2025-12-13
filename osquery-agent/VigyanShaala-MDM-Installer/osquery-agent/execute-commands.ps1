@@ -99,12 +99,16 @@ function Show-ToastNotification {
         [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
         [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
         
+        # Escape XML special characters
+        $escapedTitle = $Title -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;' -replace "'", '&apos;'
+        $escapedMessage = $Message -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;' -replace "'", '&apos;'
+        
         $template = @"
 <toast>
     <visual>
         <binding template="ToastGeneric">
-            <text>$Title</text>
-            <text>$Message</text>
+            <text>$escapedTitle</text>
+            <text>$escapedMessage</text>
         </binding>
     </visual>
     <audio src="ms-winsoundevent:Notification.Default" />

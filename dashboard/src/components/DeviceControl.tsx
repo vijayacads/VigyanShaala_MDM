@@ -175,7 +175,9 @@ export default function DeviceControl({ selectedDevice, locationId }: DeviceCont
   })
 
   const handleSelectAll = () => {
-    if (selectedBroadcastDevices.length === filteredDevices.length) {
+    if (filteredDevices.length === 0) return
+    if (selectedBroadcastDevices.length === filteredDevices.length && 
+        filteredDevices.every(d => selectedBroadcastDevices.includes(d.hostname))) {
       setSelectedBroadcastDevices([])
     } else {
       setSelectedBroadcastDevices(filteredDevices.map(d => d.hostname))

@@ -41,7 +41,8 @@ $headerPanel.BackColor = $PrimaryBlue
 $form.Controls.Add($headerPanel)
 
 # Try to load and display logo
-$logoPath = "$PSScriptRoot\Logo.png"
+$scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$logoPath = Join-Path $scriptDir "Logo.png"
 if (-not (Test-Path $logoPath)) {
     $logoPath = "$env:ProgramFiles\osquery\Logo.png"
 }
@@ -145,7 +146,7 @@ $statusLabel.ForeColor = $PrimaryGreen
 $statusLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $form.Controls.Add($statusLabel)
 
-# Function to format message with colors
+# Function to format message
 function Format-Message {
     param(
         [string]$Sender,
@@ -154,7 +155,6 @@ function Format-Message {
         [bool]$IsBroadcast = $false
     )
     
-    $color = if ($IsBroadcast) { $PrimaryBlue } else { if ($Sender -eq "Support") { $PrimaryGreen } else { $PrimaryBlue } }
     $prefix = if ($IsBroadcast) { "📢 [BROADCAST]" } else { "" }
     
     $formatted = "[$Time] $prefix $Sender`: $Message`r`n"
