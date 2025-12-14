@@ -118,7 +118,9 @@ $taskNames = @(
     "VigyanShaala-MDM-SyncWebsiteBlocklist",
     "VigyanShaala-MDM-SyncSoftwareBlocklist",
     "VigyanShaala-MDM-SendOsqueryData",
-    "VigyanShaala-MDM-CommandProcessor"
+    "VigyanShaala-MDM-CollectBatteryData",
+    "VigyanShaala-MDM-RealtimeListener",
+    "VigyanShaala-UserNotify-Agent"
 )
 
 foreach ($taskName in $taskNames) {
