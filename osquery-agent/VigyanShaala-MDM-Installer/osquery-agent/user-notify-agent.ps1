@@ -12,12 +12,17 @@ param(
 
 # Normalize hostname
 $DeviceHostname = $DeviceHostname.Trim().ToUpper()
-$CurrentUsername = $env:USERNAME
-$CurrentDomain = $env:USERDOMAIN
-$FullUsername = if ($CurrentDomain -and $CurrentDomain -ne $env:COMPUTERNAME) {
-    "$CurrentDomain\$CurrentUsername"
-} else {
-    $CurrentUsername
+# Use same format as execute-commands.ps1 (WMI) to match stored usernames
+$FullUsername = (Get-WmiObject -Class Win32_ComputerSystem).Username
+if (-not $FullUsername) {
+    # Fallback to env vars if WMI fails
+    $CurrentUsername = $env:USERNAME
+    $CurrentDomain = $env:USERDOMAIN
+    $FullUsername = if ($CurrentDomain -and $CurrentDomain -ne $env:COMPUTERNAME) {
+        "$CurrentDomain\$CurrentUsername"
+    } else {
+        $CurrentUsername
+    }
 }
 
 # Logging function
@@ -55,6 +60,7 @@ $headers = @{
 function Show-ToastNotification {
     param([string]$Title, [string]$Message)
     
+    # Try modern toast API first
     try {
         [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
         [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
@@ -82,7 +88,17 @@ function Show-ToastNotification {
         $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("VigyanShaala MDM")
         $notifier.Show($toast)
         
-        Write-Log "Toast notification shown: $Title" "INFO"
+        Write-Log "Toast notification shown via Windows.UI.Notifications: $Title" "INFO"
+        return $true
+    } catch {
+        Write-Log "Windows.UI.Notifications failed, trying MessageBox fallback: $_" "WARN"
+    }
+    
+    # Fallback to MessageBox (always works)
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.MessageBox]::Show($Message, $Title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+        Write-Log "Toast notification shown via MessageBox: $Title" "INFO"
         return $true
     } catch {
         Write-Log "Failed to show toast notification: $_" "ERROR"

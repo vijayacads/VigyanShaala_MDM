@@ -136,10 +136,10 @@ if ($SupabaseUrl -and $SupabaseKey) {
 if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "`nApplying blocklists..." -ForegroundColor Cyan
     
+    # Task 4: Website Blocklist Sync
     # ============================================
-    # Website Blocklist
-    # ============================================
-    Write-Host "Applying website blocklist..." -ForegroundColor Cyan
+    Write-Host "`n[4/6] Setting up website blocklist sync..." -ForegroundColor Cyan
+    Write-Host "Applying initial website blocklist..." -ForegroundColor Gray
     $websiteBlocklistScript = "$InstallDir\apply-website-blocklist.ps1"
     if (Test-Path "apply-website-blocklist.ps1") {
         Copy-Item "apply-website-blocklist.ps1" $websiteBlocklistScript -Force
@@ -151,8 +151,7 @@ if ($SupabaseUrl -and $SupabaseKey) {
         }
     }
     
-    # Create scheduled task to sync website blocklist every 30 minutes
-    Write-Host "Creating scheduled task for website blocklist sync..." -ForegroundColor Cyan
+    Write-Host "Creating scheduled task for website blocklist sync..." -ForegroundColor Gray
     $websiteSyncScript = "$InstallDir\sync-blocklist-scheduled.ps1"
     if (Test-Path "sync-blocklist-scheduled.ps1") {
         Copy-Item "sync-blocklist-scheduled.ps1" $websiteSyncScript -Force
@@ -174,10 +173,10 @@ if ($SupabaseUrl -and $SupabaseKey) {
         Write-Warning "Could not create website blocklist sync task: $_"
     }
     
+    # Task 5: Software Blocklist Sync
     # ============================================
-    # Software Blocklist
-    # ============================================
-    Write-Host "`nApplying software blocklist..." -ForegroundColor Cyan
+    Write-Host "`n[5/6] Setting up software blocklist sync..." -ForegroundColor Cyan
+    Write-Host "Applying initial software blocklist..." -ForegroundColor Gray
     $softwareBlocklistScript = "$InstallDir\apply-software-blocklist.ps1"
     if (Test-Path "apply-software-blocklist.ps1") {
         Copy-Item "apply-software-blocklist.ps1" $softwareBlocklistScript -Force
@@ -189,8 +188,7 @@ if ($SupabaseUrl -and $SupabaseKey) {
         }
     }
     
-    # Create scheduled task to sync software blocklist every hour
-    Write-Host "Creating scheduled task for software blocklist sync..." -ForegroundColor Cyan
+    Write-Host "Creating scheduled task for software blocklist sync..." -ForegroundColor Gray
     $softwareSyncScript = "$InstallDir\sync-software-blocklist-scheduled.ps1"
     if (Test-Path "sync-software-blocklist-scheduled.ps1") {
         Copy-Item "sync-software-blocklist-scheduled.ps1" $softwareSyncScript -Force
@@ -213,9 +211,13 @@ if ($SupabaseUrl -and $SupabaseKey) {
     }
     
     # ============================================
-    # Data Sending Task (NEW - sends osquery data to Supabase)
+    # SCHEDULED TASKS - SYSTEM LEVEL
+    # All tasks run as SYSTEM account for background operations
     # ============================================
-    Write-Host "`nCreating scheduled task to send osquery data..." -ForegroundColor Cyan
+    
+    # Task 1: Data Sending (sends osquery data to Supabase)
+    # ============================================
+    Write-Host "`n[1/6] Creating scheduled task to send osquery data..." -ForegroundColor Cyan
     $sendDataScript = "$InstallDir\send-osquery-data.ps1"
     if (Test-Path "send-osquery-data.ps1") {
         Copy-Item "send-osquery-data.ps1" $sendDataScript -Force
@@ -252,10 +254,36 @@ if ($SupabaseUrl -and $SupabaseKey) {
         Write-Warning "Could not create data sending task: $_"
     }
     
+    # Task 2: Battery Data Collection (WMI-based)
     # ============================================
-    # Command Processor Task (NEW - processes commands and messages)
+    Write-Host "`n[2/6] Creating scheduled task for battery data collection (WMI)..." -ForegroundColor Cyan
+    $batteryScript = "$InstallDir\get-battery-wmi.ps1"
+    if (Test-Path "get-battery-wmi.ps1") {
+        Copy-Item "get-battery-wmi.ps1" $batteryScript -Force
+        Write-Host "get-battery-wmi.ps1 copied" -ForegroundColor Green
+    } else {
+        Write-Warning "get-battery-wmi.ps1 not found - battery data collection will not work"
+    }
+    
+    $batteryTaskName = "VigyanShaala-MDM-CollectBatteryData"
+    $batteryTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-ExecutionPolicy Bypass -File `"$batteryScript`""
+    $batteryTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 365)
+    $batteryTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $batteryTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RunOnlyIfNetworkAvailable:$false
+    
+    try {
+        Unregister-ScheduledTask -TaskName $batteryTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        $task = Register-ScheduledTask -TaskName $batteryTaskName -Action $batteryTaskAction -Trigger $batteryTaskTrigger -Principal $batteryTaskPrincipal -Settings $batteryTaskSettings -Description "Collect battery data using WMI every 10 minutes" -Force
+        Enable-ScheduledTask -TaskName $batteryTaskName
+        Write-Host "Battery data collection task created and enabled (runs every 10 minutes)" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create battery data collection task: $_"
+    }
+    
+    # Task 3: Command Processor (processes device commands)
     # ============================================
-    Write-Host "`nCreating scheduled task for command processor..." -ForegroundColor Cyan
+    Write-Host "`n[3/6] Creating scheduled task for command processor..." -ForegroundColor Cyan
     $commandScript = "$InstallDir\execute-commands.ps1"
     if (Test-Path "execute-commands.ps1") {
         Copy-Item "execute-commands.ps1" $commandScript -Force
@@ -278,9 +306,13 @@ if ($SupabaseUrl -and $SupabaseKey) {
     }
     
     # ============================================
-    # User Session Notification Agent (NEW - runs at user logon)
+    # SCHEDULED TASKS - USER LEVEL
+    # Runs in user session for UI/audio access
     # ============================================
-    Write-Host "`nSetting up user-session notification agent..." -ForegroundColor Cyan
+    
+    # Task 6: User Session Notification Agent (runs at user logon)
+    # ============================================
+    Write-Host "`n[6/6] Setting up user-session notification agent..." -ForegroundColor Cyan
     $userNotifyScript = "$InstallDir\user-notify-agent.ps1"
     if (Test-Path "user-notify-agent.ps1") {
         Copy-Item "user-notify-agent.ps1" $userNotifyScript -Force

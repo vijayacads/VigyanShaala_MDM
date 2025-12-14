@@ -201,7 +201,10 @@ function Process-Commands {
     # Get all pending commands for this device (process all, not just one)
     # Use case-insensitive matching by querying with ilike (PostgreSQL case-insensitive like)
     # Note: PostgREST doesn't support ilike directly, so we'll try exact match first, then try uppercase
-    $commandUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname&command_type=in.(lock,unlock,clear_cache,buzz)&status=eq.pending&order=created_at.asc"
+    $commandUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname"
+    $commandUrl = $commandUrl + [char]38 + 'command_type=in.(lock,unlock,clear_cache,buzz)'
+    $commandUrl = $commandUrl + [char]38 + 'status=eq.pending'
+    $commandUrl = $commandUrl + [char]38 + 'order=created_at.asc'
     
     Write-Host "Querying commands with hostname: '$DeviceHostname'" -ForegroundColor Gray
     
@@ -212,7 +215,10 @@ function Process-Commands {
         if (-not $response -or $response.Count -eq 0) {
             Write-Host "No commands found with exact hostname match, trying case-insensitive search..." -ForegroundColor Yellow
             # Get all pending commands and filter by case-insensitive hostname match
-            $allCommandsUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=in.(lock,unlock,clear_cache,buzz)&status=eq.pending&order=created_at.asc&select=*"
+            $allCommandsUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=in.(lock,unlock,clear_cache,buzz)"
+            $allCommandsUrl = $allCommandsUrl + [char]38 + 'status=eq.pending'
+            $allCommandsUrl = $allCommandsUrl + [char]38 + 'order=created_at.asc'
+            $allCommandsUrl = $allCommandsUrl + [char]38 + 'select=*'
             $allCommands = Invoke-RestMethod -Uri $allCommandsUrl -Method GET -Headers $headers
             if ($allCommands) {
                 $response = $allCommands | Where-Object { $_.device_hostname -and $_.device_hostname.Trim().ToUpper() -eq $DeviceHostname }
@@ -280,7 +286,10 @@ function Process-BroadcastMessages {
     }
     
     # Get pending broadcast messages
-    $messageUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname&command_type=eq.broadcast_message&status=eq.pending&order=created_at.asc"
+    $messageUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname"
+    $messageUrl = $messageUrl + [char]38 + 'command_type=eq.broadcast_message'
+    $messageUrl = $messageUrl + [char]38 + 'status=eq.pending'
+    $messageUrl = $messageUrl + [char]38 + 'order=created_at.asc'
     
     Write-Host "Querying broadcast messages with hostname: '$DeviceHostname'" -ForegroundColor Gray
     
@@ -290,7 +299,10 @@ function Process-BroadcastMessages {
         # If no results with exact match, try case-insensitive search
         if (-not $response -or $response.Count -eq 0) {
             Write-Host "No broadcast messages found with exact hostname match, trying case-insensitive search..." -ForegroundColor Yellow
-            $allMessagesUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=eq.broadcast_message&status=eq.pending&order=created_at.asc&select=*"
+            $allMessagesUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=eq.broadcast_message"
+            $allMessagesUrl = $allMessagesUrl + [char]38 + 'status=eq.pending'
+            $allMessagesUrl = $allMessagesUrl + [char]38 + 'order=created_at.asc'
+            $allMessagesUrl = $allMessagesUrl + [char]38 + 'select=*'
             $allMessages = Invoke-RestMethod -Uri $allMessagesUrl -Method GET -Headers $headers
             if ($allMessages) {
                 $response = $allMessages | Where-Object { $_.device_hostname -and $_.device_hostname.Trim().ToUpper() -eq $DeviceHostname }
