@@ -485,26 +485,27 @@ function Register-DeviceInSupabase {
         "Prefer" = "return=representation"
     }
     
-    # Build body exactly matching AddDevice component - NO location_id, NO device ID
+    # Build body for enroll_device function (SECURITY DEFINER - bypasses RLS)
+    # Note: Function parameter names use p_ prefix
     # Note: serial_number was removed in migration 015, use device_imei_number instead
     $body = @{
-        hostname = $deviceData.hostname
-        device_inventory_code = if ([string]::IsNullOrWhiteSpace($deviceData.device_inventory_code)) { $null } else { $deviceData.device_inventory_code }
-        device_imei_number = if ([string]::IsNullOrWhiteSpace($deviceData.device_imei_number)) { $null } else { $deviceData.device_imei_number }
-        device_make = if ([string]::IsNullOrWhiteSpace($deviceData.device_make)) { $null } else { $deviceData.device_make }
-        host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }
-        city_town_village = if ([string]::IsNullOrWhiteSpace($deviceData.city_town_village)) { $null } else { $deviceData.city_town_village }
-        laptop_model = if ([string]::IsNullOrWhiteSpace($deviceData.laptop_model)) { $null } else { $deviceData.laptop_model }
-        latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }
-        longitude = if ($deviceData.longitude) { [double]$deviceData.longitude } else { $null }
-        os_version = if ([string]::IsNullOrWhiteSpace($deviceData.os_version)) { $null } else { $deviceData.os_version }
-        assigned_teacher = if ([string]::IsNullOrWhiteSpace($deviceData.assigned_teacher)) { $null } else { $deviceData.assigned_teacher }
-        assigned_student_leader = if ([string]::IsNullOrWhiteSpace($deviceData.assigned_student_leader)) { $null } else { $deviceData.assigned_student_leader }
-        role = if ([string]::IsNullOrWhiteSpace($deviceData.role)) { $null } else { $deviceData.role }
-        issue_date = if ([string]::IsNullOrWhiteSpace($deviceData.issue_date)) { $null } else { $deviceData.issue_date }
-        wifi_ssid = if ([string]::IsNullOrWhiteSpace($deviceData.wifi_ssid)) { $null } else { $deviceData.wifi_ssid }
-        compliance_status = "unknown"
-        last_seen = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        p_hostname = $deviceData.hostname
+        p_device_inventory_code = if ([string]::IsNullOrWhiteSpace($deviceData.device_inventory_code)) { $null } else { $deviceData.device_inventory_code }
+        p_device_imei_number = if ([string]::IsNullOrWhiteSpace($deviceData.device_imei_number)) { $null } else { $deviceData.device_imei_number }
+        p_device_make = if ([string]::IsNullOrWhiteSpace($deviceData.device_make)) { $null } else { $deviceData.device_make }
+        p_host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }
+        p_city_town_village = if ([string]::IsNullOrWhiteSpace($deviceData.city_town_village)) { $null } else { $deviceData.city_town_village }
+        p_laptop_model = if ([string]::IsNullOrWhiteSpace($deviceData.laptop_model)) { $null } else { $deviceData.laptop_model }
+        p_latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }
+        p_longitude = if ($deviceData.longitude) { [double]$deviceData.longitude } else { $null }
+        p_os_version = if ([string]::IsNullOrWhiteSpace($deviceData.os_version)) { $null } else { $deviceData.os_version }
+        p_assigned_teacher = if ([string]::IsNullOrWhiteSpace($deviceData.assigned_teacher)) { $null } else { $deviceData.assigned_teacher }
+        p_assigned_student_leader = if ([string]::IsNullOrWhiteSpace($deviceData.assigned_student_leader)) { $null } else { $deviceData.assigned_student_leader }
+        p_role = if ([string]::IsNullOrWhiteSpace($deviceData.role)) { $null } else { $deviceData.role }
+        p_issue_date = if ([string]::IsNullOrWhiteSpace($deviceData.issue_date)) { $null } else { $deviceData.issue_date }
+        p_wifi_ssid = if ([string]::IsNullOrWhiteSpace($deviceData.wifi_ssid)) { $null } else { $deviceData.wifi_ssid }
+        p_compliance_status = "unknown"
+        p_last_seen = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
     } | ConvertTo-Json -Depth 10
     
     Write-Host "Registering device..." -ForegroundColor Cyan
@@ -520,7 +521,8 @@ function Register-DeviceInSupabase {
     Write-Host ""
     
     try {
-        $response = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/devices" `
+        # Use RPC endpoint to call enroll_device function (bypasses RLS via SECURITY DEFINER)
+        $response = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/rpc/enroll_device" `
             -Method POST -Headers $headers -Body $body `
             -ErrorAction Stop
         
