@@ -34,23 +34,24 @@ if (-not (Test-Path "$OutputPath\osquery-agent")) {
     throw "Failed to create output directory: $OutputPath\osquery-agent"
 }
 
-# Copy required files
+# Copy required files - ALL features included
 $filesToCopy = @(
-    "install-osquery.ps1",
-    "enroll-device.ps1",
-    "osquery.conf",
-    "apply-website-blocklist.ps1",
-    "apply-software-blocklist.ps1",
-    "sync-blocklist-scheduled.ps1",
-    "sync-software-blocklist-scheduled.ps1",
-    "send-osquery-data.ps1",
-    "trigger-osquery-queries.ps1",  # For debugging/manual testing
-    "get-battery-wmi.ps1",  # WMI-based battery data collection
-    "execute-commands.ps1",
-    "user-notify-agent.ps1",  # User-session notification agent for buzz/toast
-    "chat-interface.ps1",
-    "VigyanShaala_Chat.bat",
-    "uninstall-osquery.ps1"
+    "install-osquery.ps1",              # Main installer
+    "enroll-device.ps1",                # Device enrollment (with SECURITY DEFINER fix)
+    "osquery.conf",                     # Osquery configuration
+    "apply-website-blocklist.ps1",      # Website blocking
+    "apply-software-blocklist.ps1",     # Software blocking
+    "sync-blocklist-scheduled.ps1",     # Website blocklist sync
+    "sync-software-blocklist-scheduled.ps1",  # Software blocklist sync
+    "send-osquery-data.ps1",            # Data collection
+    "trigger-osquery-queries.ps1",      # For debugging/manual testing
+    "get-battery-wmi.ps1",              # WMI-based battery data collection
+    "execute-commands.ps1",             # Command execution (lock/unlock/buzz/toast)
+    "realtime-command-listener.ps1",    # WebSocket realtime command listener
+    "user-notify-agent.ps1",            # User-session notification agent for buzz/toast
+    "chat-interface.ps1",               # Chat interface
+    "VigyanShaala_Chat.bat",            # Chat launcher
+    "uninstall-osquery.ps1"             # Uninstaller
 )
 
 $copiedCount = 0
