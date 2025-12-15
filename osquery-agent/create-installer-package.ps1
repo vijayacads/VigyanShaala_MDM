@@ -14,12 +14,25 @@ param(
 
 Write-Host "Creating installer package..." -ForegroundColor Cyan
 
-# Create output directory
+# Get script directory and resolve paths
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$OutputPath = Join-Path $scriptDir (Split-Path -Leaf $OutputPath)
+$OutputPath = [System.IO.Path]::GetFullPath($OutputPath)
+
+Write-Host "Script directory: $scriptDir" -ForegroundColor Gray
+Write-Host "Output path: $OutputPath" -ForegroundColor Gray
+
+# Create output directory (ensure it's clean)
 if (Test-Path $OutputPath) {
     Remove-Item $OutputPath -Recurse -Force
 }
-New-Item -ItemType Directory -Path $OutputPath | Out-Null
-New-Item -ItemType Directory -Path "$OutputPath\osquery-agent" | Out-Null
+$null = New-Item -ItemType Directory -Path $OutputPath -Force
+$null = New-Item -ItemType Directory -Path "$OutputPath\osquery-agent" -Force
+
+# Verify directories were created
+if (-not (Test-Path "$OutputPath\osquery-agent")) {
+    throw "Failed to create output directory: $OutputPath\osquery-agent"
+}
 
 # Copy required files
 $filesToCopy = @(
@@ -40,29 +53,52 @@ $filesToCopy = @(
     "uninstall-osquery.ps1"
 )
 
+$copiedCount = 0
+$missingCount = 0
+
 foreach ($file in $filesToCopy) {
-    if (Test-Path $file) {
-        # For PowerShell files, preserve UTF-8 BOM encoding (needed for emojis)
-        if ($file -like "*.ps1") {
-            $content = Get-Content $file -Raw
-            $utf8WithBom = New-Object System.Text.UTF8Encoding $true
-            [System.IO.File]::WriteAllText("$OutputPath\osquery-agent\$file", $content, $utf8WithBom)
-            Write-Host "Copied: $file (with UTF-8 BOM)" -ForegroundColor Green
-        } else {
-            Copy-Item $file "$OutputPath\osquery-agent\" -Force
-            Write-Host "Copied: $file" -ForegroundColor Green
+    $sourcePath = Join-Path $scriptDir $file
+    $destPath = Join-Path "$OutputPath\osquery-agent" $file
+    
+    if (Test-Path $sourcePath) {
+        try {
+            # For PowerShell files, preserve UTF-8 BOM encoding (needed for emojis)
+            if ($file -like "*.ps1") {
+                $content = Get-Content $sourcePath -Raw -Encoding UTF8
+                $utf8WithBom = New-Object System.Text.UTF8Encoding $true
+                [System.IO.File]::WriteAllText($destPath, $content, $utf8WithBom)
+                Write-Host "Copied: $file (with UTF-8 BOM)" -ForegroundColor Green
+            } else {
+                Copy-Item $sourcePath $destPath -Force
+                Write-Host "Copied: $file" -ForegroundColor Green
+            }
+            $copiedCount++
+            
+            # Verify file was copied
+            if (-not (Test-Path $destPath)) {
+                throw "File copy verification failed: $file"
+            }
+        } catch {
+            Write-Error "Failed to copy $file : $_"
+            $missingCount++
         }
     } else {
-        Write-Warning "File not found: $file"
+        Write-Warning "File not found: $file (expected at: $sourcePath)"
+        $missingCount++
     }
 }
 
+Write-Host ""
+Write-Host "Copy Summary: $copiedCount files copied, $missingCount files missing" -ForegroundColor Cyan
+
 # Copy Logo.png if it exists (for chat interface and desktop shortcut)
-if (Test-Path "Logo.png") {
-    Copy-Item "Logo.png" "$OutputPath\osquery-agent\" -Force
+$logoPath = Join-Path $scriptDir "Logo.png"
+$dashboardLogoPath = Join-Path (Split-Path -Parent $scriptDir) "dashboard\public\Logo.png"
+if (Test-Path $logoPath) {
+    Copy-Item $logoPath "$OutputPath\osquery-agent\" -Force
     Write-Host "Copied: Logo.png" -ForegroundColor Green
-} elseif (Test-Path "..\dashboard\public\Logo.png") {
-    Copy-Item "..\dashboard\public\Logo.png" "$OutputPath\osquery-agent\" -Force
+} elseif (Test-Path $dashboardLogoPath) {
+    Copy-Item $dashboardLogoPath "$OutputPath\osquery-agent\" -Force
     Write-Host "Copied: Logo.png (from dashboard)" -ForegroundColor Green
 }
 
@@ -87,10 +123,22 @@ Set-Content -Path "$OutputPath\INSTALL.bat" -Value $installBatContent
 Write-Host "Created: INSTALL.bat (pre-configured)" -ForegroundColor Green
 
 # Copy INSTALL.ps1
-Copy-Item "INSTALL.ps1" "$OutputPath\" -Force -ErrorAction SilentlyContinue
+$installPs1Path = Join-Path $scriptDir "INSTALL.ps1"
+if (Test-Path $installPs1Path) {
+    Copy-Item $installPs1Path "$OutputPath\" -Force
+    Write-Host "Copied: INSTALL.ps1" -ForegroundColor Green
+} else {
+    Write-Warning "INSTALL.ps1 not found at: $installPs1Path"
+}
 
 # Copy README
-Copy-Item "README-TEACHER.md" "$OutputPath\README.txt" -Force -ErrorAction SilentlyContinue
+$readmePath = Join-Path $scriptDir "README-TEACHER.md"
+if (Test-Path $readmePath) {
+    Copy-Item $readmePath "$OutputPath\README.txt" -Force
+    Write-Host "Copied: README.txt" -ForegroundColor Green
+} else {
+    Write-Warning "README-TEACHER.md not found at: $readmePath"
+}
 
 # Create a simple launcher that checks admin
 $launcherContent = @"
@@ -167,9 +215,62 @@ if (Test-Path $zipPath) {
 }
 
 Write-Host ""
+Write-Host "Verifying package contents..." -ForegroundColor Cyan
+$fileCount = (Get-ChildItem -Path $OutputPath -Recurse -File).Count
+Write-Host "Total files in package: $fileCount" -ForegroundColor Yellow
+
+if ($fileCount -eq 0) {
+    throw "ERROR: Package is empty! No files were copied."
+}
+
+# Verify critical files exist
+$criticalFiles = @(
+    "$OutputPath\INSTALL.bat",
+    "$OutputPath\INSTALL.ps1",
+    "$OutputPath\RUN-AS-ADMIN.bat",
+    "$OutputPath\osquery-agent\enroll-device.ps1",
+    "$OutputPath\osquery-agent\install-osquery.ps1"
+)
+
+$missingCritical = @()
+foreach ($criticalFile in $criticalFiles) {
+    if (-not (Test-Path $criticalFile)) {
+        $missingCritical += $criticalFile
+    }
+}
+
+if ($missingCritical.Count -gt 0) {
+    Write-Error "ERROR: Missing critical files:"
+    $missingCritical | ForEach-Object { Write-Error "  - $_" }
+    throw "Package creation failed: Critical files missing"
+}
+
+Write-Host "All critical files present!" -ForegroundColor Green
+Write-Host ""
 Write-Host "Creating ZIP package..." -ForegroundColor Cyan
+
+# Remove existing ZIP if it exists
+if (Test-Path $zipPath) {
+    Remove-Item $zipPath -Force
+}
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.IO.Compression.ZipFile]::CreateFromDirectory($OutputPath, $zipPath)
+
+# Verify ZIP was created and has content
+if (-not (Test-Path $zipPath)) {
+    throw "ERROR: ZIP file was not created!"
+}
+
+$zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+$zipEntryCount = $zip.Entries.Count
+$zip.Dispose()
+
+if ($zipEntryCount -eq 0) {
+    throw "ERROR: ZIP file is empty!"
+}
+
+Write-Host "ZIP created successfully with $zipEntryCount entries" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
