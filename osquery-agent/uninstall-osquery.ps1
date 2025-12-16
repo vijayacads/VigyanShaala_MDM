@@ -140,15 +140,49 @@ if (Test-Path $InstallDir) {
     Write-Host "Removing installation directory..." -ForegroundColor Yellow
     try {
         # Wait a bit to ensure service is fully stopped
+        Start-Sleep -Seconds 3
+        
+        # Kill any processes that might be locking files in the directory
+        Write-Host "Checking for processes locking files..." -ForegroundColor Yellow
+        Get-Process | Where-Object { 
+            $_.Path -and $_.Path.StartsWith($InstallDir, [System.StringComparison]::OrdinalIgnoreCase)
+        } | ForEach-Object {
+            Write-Host "Killing process locking files: $($_.Name) (PID: $($_.Id))" -ForegroundColor Yellow
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
         Start-Sleep -Seconds 2
         
-        # Remove directory with retry
+        # Try to remove files individually first (more reliable than removing entire directory)
+        Write-Host "Removing files individually..." -ForegroundColor Yellow
+        $files = Get-ChildItem -Path $InstallDir -Recurse -Force -ErrorAction SilentlyContinue
+        foreach ($file in $files) {
+            try {
+                if ($file.PSIsContainer) {
+                    Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                } else {
+                    # Remove read-only attribute if present
+                    $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+                    Remove-Item -Path $file.FullName -Force -ErrorAction SilentlyContinue
+                }
+            } catch {
+                # Ignore individual file errors, continue with others
+            }
+        }
+        Start-Sleep -Seconds 1
+        
+        # Now try to remove the directory itself
         $maxRetries = 5
         $retryCount = 0
         $removed = $false
         
         while ($retryCount -lt $maxRetries -and -not $removed) {
             try {
+                # Final check for any remaining processes
+                Get-Process | Where-Object { 
+                    $_.Path -and $_.Path.StartsWith($InstallDir, [System.StringComparison]::OrdinalIgnoreCase)
+                } | Stop-Process -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 1
+                
                 Remove-Item -Path $InstallDir -Recurse -Force -ErrorAction Stop
                 $removed = $true
                 Write-Host "Installation directory removed" -ForegroundColor Green
@@ -156,15 +190,35 @@ if (Test-Path $InstallDir) {
                 $retryCount++
                 if ($retryCount -lt $maxRetries) {
                     Write-Host "Retrying removal (attempt $($retryCount)/$($maxRetries))..." -ForegroundColor Yellow
-                    Start-Sleep -Seconds 2
+                    # Try to unlock files using handle.exe if available, or just wait longer
+                    Start-Sleep -Seconds 3
                 } else {
                     Write-Warning "Could not remove directory: $_"
-                    Write-Host "You may need to manually delete: $InstallDir" -ForegroundColor Yellow
+                    Write-Host "Attempting to remove remaining files..." -ForegroundColor Yellow
+                    # Last resort: try to remove what we can
+                    try {
+                        Get-ChildItem -Path $InstallDir -Recurse -Force | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                        # Try one more time to remove the directory
+                        if (Test-Path $InstallDir) {
+                            Remove-Item -Path $InstallDir -Force -ErrorAction SilentlyContinue
+                        }
+                        if (-not (Test-Path $InstallDir)) {
+                            Write-Host "Directory removed after cleanup" -ForegroundColor Green
+                            $removed = $true
+                        } else {
+                            Write-Host "Some files may still be locked. You may need to manually delete: $InstallDir" -ForegroundColor Yellow
+                            Write-Host "  Try restarting the computer, then delete the folder manually." -ForegroundColor Yellow
+                        }
+                    } catch {
+                        Write-Host "You may need to manually delete: $InstallDir" -ForegroundColor Yellow
+                        Write-Host "  Try restarting the computer, then delete the folder manually." -ForegroundColor Yellow
+                    }
                 }
             }
         }
     } catch {
         Write-Warning "Could not remove installation directory: $_"
+        Write-Host "You may need to manually delete: $InstallDir" -ForegroundColor Yellow
     }
 } else {
     Write-Host "Installation directory not found at: $InstallDir" -ForegroundColor Gray
