@@ -59,48 +59,51 @@ function Clear-DeviceCache {
     }
 }
 
-# Function to queue buzz command for user-session agent
+# Function to play buzzer sound directly (works from SYSTEM account)
 function Buzz-Device {
     param([int]$Duration = 5)
     
-    Write-Host "Queueing buzz command for user-session agent..." -ForegroundColor Yellow
+    Write-Host "Playing buzzer sound directly..." -ForegroundColor Yellow
     try {
-        # Get logged-in user (normalize to match user agent format)
-        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
-        if (-not $loggedInUser) {
-            Write-Warning "No logged-in user found for buzz command"
-            return $false
-        }
-        
-        # Normalize username format (domain\user or just user) to match user agent
-        # User agent uses: domain\user if domain exists, else just user
-        $normalizedUsername = $loggedInUser
-        
-        # Write notification to user_notifications table for user-session agent to process
-        $headers = @{
-            "apikey" = $SupabaseKey
-            "Authorization" = "Bearer $SupabaseKey"
-            "Content-Type" = "application/json"
-            "Prefer" = "return=representation"
-        }
-        
-        $body = @{
-            device_hostname = $DeviceHostname
-            username = $normalizedUsername
-            type = "buzzer"
-            payload = @{
-                duration = $Duration
+        # Use Windows API MessageBeep - works from SYSTEM account
+        Add-Type -TypeDefinition @"
+            using System;
+            using System.Runtime.InteropServices;
+            public class Beep {
+                [DllImport("user32.dll")]
+                public static extern bool MessageBeep(uint uType);
             }
-            status = "pending"
-        } | ConvertTo-Json -Depth 10
+"@
         
-        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
-        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        $endTime = (Get-Date).AddSeconds($Duration)
+        $beepCount = 0
+        $beepInterval = 500  # milliseconds between beeps
         
-        Write-Host "Buzz command queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
+        while ((Get-Date) -lt $endTime) {
+            # MessageBeep types: 0xFFFFFFFF = simple beep, 0x00000010 = asterisk, 0x00000030 = exclamation
+            # Using 0xFFFFFFFF (simple beep) - works from SYSTEM account
+            [Beep]::MessageBeep(0xFFFFFFFF)
+            $beepCount++
+            
+            # Check if we have time for another beep
+            $timeRemaining = ($endTime - (Get-Date)).TotalMilliseconds
+            if ($timeRemaining -gt $beepInterval) {
+                Start-Sleep -Milliseconds $beepInterval
+            } else {
+                break
+            }
+        }
+        
+        Write-Host "Buzzer played for $Duration seconds ($beepCount beeps)" -ForegroundColor Green
         return $true
     } catch {
-        Write-Error "Failed to queue buzz command: $_"
+        Write-Error "Failed to play buzzer: $_"
+        # Fallback: try console beep (may not work from SYSTEM)
+        try {
+            [console]::beep(800, 500)
+        } catch {
+            Write-Warning "Console beep also failed"
+        }
         return $false
     }
 }
