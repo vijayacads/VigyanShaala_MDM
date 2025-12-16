@@ -3,12 +3,13 @@
 # Run this before uploading to verify the fix works
 
 # =====================================================
-# CONFIGURATION - Replace with your Supabase credentials
+# CONFIGURATION - Uses environment variables
 # =====================================================
 
-# Your Supabase credentials (from installer configuration)
-$SupabaseUrl = "https://ujmcjezpmyvpiasfrwhm.supabase.co"
-$SupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqbWNqZXpwbXl2cGlhc2Zyd2htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzOTQ2NzQsImV4cCI6MjA4MDk3MDY3NH0.LNeLEQs2K1AXyTG2vlCHyfRLpavFBSGgqjtwLoXdyMQ"
+# Your Supabase credentials (from environment variables or installer configuration)
+# Set these before running: $env:SUPABASE_URL = "https://your-project.supabase.co"
+$SupabaseUrl = $env:SUPABASE_URL
+$SupabaseAnonKey = $env:SUPABASE_ANON_KEY
 
 # =====================================================
 # Test Function
@@ -21,7 +22,10 @@ Write-Host ""
 
 # Validate credentials
 if ([string]::IsNullOrWhiteSpace($SupabaseUrl) -or [string]::IsNullOrWhiteSpace($SupabaseAnonKey)) {
-    Write-Host "ERROR: Supabase credentials are missing!" -ForegroundColor Red
+    Write-Host "ERROR: SUPABASE_URL and SUPABASE_ANON_KEY environment variables must be set" -ForegroundColor Red
+    Write-Host "Set them with:" -ForegroundColor Yellow
+    Write-Host '  $env:SUPABASE_URL = "https://your-project.supabase.co"' -ForegroundColor White
+    Write-Host '  $env:SUPABASE_ANON_KEY = "your-anon-key"' -ForegroundColor White
     exit 1
 }
 
@@ -142,4 +146,3 @@ try {
     
     exit 1
 }
-

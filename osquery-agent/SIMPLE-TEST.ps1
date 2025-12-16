@@ -1,8 +1,18 @@
 # Simple test - just run this file
 # Tests device registration with your Supabase credentials
+# NOTE: Uses environment variables SUPABASE_URL and SUPABASE_ANON_KEY
+# Set these before running: $env:SUPABASE_URL = "https://your-project.supabase.co"
 
-$SupabaseUrl = "https://ujmcjezpmyvpiasfrwhm.supabase.co"
-$SupabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqbWNqZXpwbXl2cGlhc2Zyd2htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzOTQ2NzQsImV4cCI6MjA4MDk3MDY3NH0.LNeLEQs2K1AXyTG2vlCHyfRLpavFBSGgqjtwLoXdyMQ"
+$SupabaseUrl = $env:SUPABASE_URL
+$SupabaseKey = $env:SUPABASE_ANON_KEY
+
+if ([string]::IsNullOrWhiteSpace($SupabaseUrl) -or [string]::IsNullOrWhiteSpace($SupabaseKey)) {
+    Write-Host "ERROR: SUPABASE_URL and SUPABASE_ANON_KEY environment variables must be set" -ForegroundColor Red
+    Write-Host "Set them with:" -ForegroundColor Yellow
+    Write-Host '  $env:SUPABASE_URL = "https://your-project.supabase.co"' -ForegroundColor White
+    Write-Host '  $env:SUPABASE_ANON_KEY = "your-anon-key"' -ForegroundColor White
+    exit 1
+}
 
 Write-Host "Testing device registration..." -ForegroundColor Cyan
 Write-Host ""
@@ -74,4 +84,6 @@ try {
 
 Write-Host ""
 pause
+
+
 
