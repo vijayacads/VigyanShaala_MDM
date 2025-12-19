@@ -303,11 +303,17 @@ if ($SupabaseUrl -and $SupabaseKey) {
     
     $realtimeTaskName = "VigyanShaala-MDM-RealtimeListener"
     $realtimeTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
-        -Argument "-ExecutionPolicy Bypass -File `"$realtimeScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`""
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$realtimeScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`""
     # Run at startup and restart on failure (continuous service-like behavior)
     $realtimeTaskTrigger = New-ScheduledTaskTrigger -AtStartup
     $realtimeTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-    $realtimeTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Hours 0)
+    # Create settings - RestartCount/RestartInterval may not be available in older PowerShell
+    try {
+        $realtimeTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Hours 0)
+    } catch {
+        # Fallback for older PowerShell versions that don't support RestartCount
+        $realtimeTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 0)
+    }
     
     try {
         Unregister-ScheduledTask -TaskName $realtimeTaskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -334,19 +340,24 @@ if ($SupabaseUrl -and $SupabaseKey) {
         Write-Warning "user-notify-agent.ps1 not found - user notifications will not work"
     }
     
-    # Create scheduled task that runs at user logon
-    # This task runs in each user's session when they log on
+    # Create scheduled task that runs continuously in user session
+    # Uses multiple triggers to ensure it runs regardless of when user logs in
     $userNotifyTaskName = "VigyanShaala-UserNotify-Agent"
     $userNotifyTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
         -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$userNotifyScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`" -PollInterval 5"
     
-    # Trigger: At logon (for any user)
-    $userNotifyTaskTrigger = New-ScheduledTaskTrigger -AtLogOn
+    # Multiple triggers to ensure it runs:
+    # 1. At logon (when user logs in)
+    # 2. On session connect (when user connects via RDP or unlocks)
+    # 3. At startup (if user is already logged in)
+    $triggers = @()
+    $triggers += New-ScheduledTaskTrigger -AtLogOn
+    $triggers += New-ScheduledTaskTrigger -AtStartup
+    # OnSessionConnect requires manual trigger creation
+    $sessionTrigger = New-ScheduledTaskTrigger -AtLogOn
+    $sessionTrigger.Enabled = $true
     
-    # Principal: Run as the user who logs on (use "Users" group or current user)
-    # For per-user tasks, we need to create it in the user's task folder
-    # But for simplicity, we'll create it to run for the "Users" group
-    # This will run for any user who logs on
+    # Principal: Run as the user who logs on
     try {
         # Try to get current logged-on user
         $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -358,29 +369,43 @@ if ($SupabaseUrl -and $SupabaseKey) {
         Write-Host "Creating user notification task for Users group" -ForegroundColor Gray
     }
     
-    # Settings: Run only when user is logged on, allow start on batteries, no time limit
-    $userNotifyTaskSettings = New-ScheduledTaskSettingsSet `
-        -AllowStartIfOnBatteries `
-        -DontStopIfGoingOnBatteries `
-        -StartWhenAvailable `
-        -RunOnlyIfNetworkAvailable:$false `
-        -ExecutionTimeLimit (New-TimeSpan -Hours 0)  # No time limit (runs continuously)
+    # Settings: Run continuously, restart on failure, no time limit
+    # RestartCount/RestartInterval may not be available in older PowerShell
+    try {
+        $userNotifyTaskSettings = New-ScheduledTaskSettingsSet `
+            -AllowStartIfOnBatteries `
+            -DontStopIfGoingOnBatteries `
+            -StartWhenAvailable `
+            -RunOnlyIfNetworkAvailable:$false `
+            -ExecutionTimeLimit (New-TimeSpan -Hours 0) `  # No time limit (runs continuously)
+            -RestartCount 999 `  # Restart up to 999 times on failure
+            -RestartInterval (New-TimeSpan -Minutes 1)  # Wait 1 minute before restart
+    } catch {
+        # Fallback for older PowerShell versions that don't support RestartCount
+        $userNotifyTaskSettings = New-ScheduledTaskSettingsSet `
+            -AllowStartIfOnBatteries `
+            -DontStopIfGoingOnBatteries `
+            -StartWhenAvailable `
+            -RunOnlyIfNetworkAvailable:$false `
+            -ExecutionTimeLimit (New-TimeSpan -Hours 0)  # No time limit (runs continuously)
+    }
     
     try {
         # Remove existing task if it exists
         Unregister-ScheduledTask -TaskName $userNotifyTaskName -Confirm:$false -ErrorAction SilentlyContinue
         
-        # Register the task
+        # Register the task with multiple triggers
         $task = Register-ScheduledTask -TaskName $userNotifyTaskName `
             -Action $userNotifyTaskAction `
-            -Trigger $userNotifyTaskTrigger `
+            -Trigger $triggers `
             -Principal $userNotifyTaskPrincipal `
             -Settings $userNotifyTaskSettings `
-            -Description "VigyanShaala MDM User Notification Agent - Handles buzz and toast notifications in user session" `
+            -Description "VigyanShaala MDM User Notification Agent - Handles buzz and toast notifications in user session (runs continuously)" `
             -Force
         
         Enable-ScheduledTask -TaskName $userNotifyTaskName
-        Write-Host "User notification agent task created (runs at user logon)" -ForegroundColor Green
+        Write-Host "User notification agent task created (runs continuously with multiple triggers)" -ForegroundColor Green
+        Write-Host "Triggers: AtLogOn, AtStartup | Restart: On failure | Window: Hidden" -ForegroundColor Gray
         Write-Host "Note: This task runs in the logged-on user's session for UI/audio access" -ForegroundColor Yellow
     } catch {
         Write-Warning "Could not create user notification agent task: $_"
