@@ -285,4 +285,3 @@ Write-Host "1. Share the ZIP file with teachers" -ForegroundColor White
 Write-Host "2. Teachers extract and run RUN-AS-ADMIN.bat" -ForegroundColor White
 Write-Host "3. If osquery MSI is needed, it will auto-download" -ForegroundColor White
 Write-Host ""
-

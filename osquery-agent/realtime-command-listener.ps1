@@ -25,6 +25,7 @@ function Write-Log {
             "ERROR" { "Red" }
             "WARN" { "Yellow" }
             "INFO" { "Green" }
+            "DEBUG" { "Gray" }
             default { "White" }
         }
         Write-Host $logMessage -ForegroundColor $color
@@ -40,7 +41,7 @@ if (-not $SupabaseUrl -or -not $SupabaseKey) {
 }
 
 # Extract project ref from URL (e.g., https://abc123.supabase.co -> abc123)
-$projectRef = ($SupabaseUrl -replace 'https://', '' -replace '.supabase.co', '').Split('.')[0]
+$projectRef = ($SupabaseUrl -replace '^https://', '' -replace '\.supabase\.co/?$', '').Split('.')[0]
 $realtimeUrl = "wss://$projectRef.supabase.co/realtime/v1/websocket?apikey=$SupabaseKey&vsn=1.0.0"
 
 Write-Log "Realtime WebSocket URL: wss://$projectRef.supabase.co/realtime/v1/websocket" "INFO"
@@ -57,29 +58,51 @@ if (-not (Test-Path $executeCommandsScript)) {
 }
 
 # Import functions from execute-commands.ps1
-# We'll dot-source it but prevent main execution by temporarily overriding Write-Host
-$scriptContent = Get-Content $executeCommandsScript -Raw
-
-# Extract function definitions (everything before "# Main execution")
-$functionsOnly = $scriptContent -replace '(?s)# Main execution.*$', ''
-
-# Create a new scriptblock that sets up variables and defines functions
-$importBlock = [scriptblock]::Create(@"
-    `$script:SupabaseUrl = '$SupabaseUrl'
-    `$script:SupabaseKey = '$SupabaseKey'
-    `$script:DeviceHostname = '$DeviceHostname'
+# Read file line by line, skip param/validation, extract only functions
+try {
+    $allLines = Get-Content $executeCommandsScript
+    $functionLines = @()
+    $inFunctions = $false
     
-    # Set variables in current scope
-    `$SupabaseUrl = '$SupabaseUrl'
-    `$SupabaseKey = '$SupabaseKey'
-    `$DeviceHostname = '$DeviceHostname'
+    foreach ($line in $allLines) {
+        # Stop at "# Main execution"
+        if ($line -match '^\s*#\s*Main execution') {
+            break
+        }
+        
+        # Skip everything until we find the first function
+        if (-not $inFunctions) {
+            if ($line -match '^\s*function\s+\w+') {
+                $inFunctions = $true
+            } else {
+                continue
+            }
+        }
+        
+        # Once we're in functions section, collect all lines
+        if ($inFunctions) {
+            $functionLines += $line
+        }
+    }
     
-    # Define all functions
-    $functionsOnly
-"@)
-
-# Execute the scriptblock to import functions
-. $importBlock
+    if ($functionLines.Count -gt 0) {
+        # Set variables in current scope for functions to use
+        $script:SupabaseUrl = $SupabaseUrl
+        $script:SupabaseKey = $SupabaseKey
+        $script:DeviceHostname = $DeviceHostname
+        
+        # Execute the function definitions
+        $functionsCode = $functionLines -join "`r`n"
+        . ([scriptblock]::Create($functionsCode))
+        
+        Write-Log "Functions imported successfully from execute-commands.ps1" "INFO"
+    } else {
+        Write-Log "No functions found in execute-commands.ps1" "WARN"
+    }
+} catch {
+    Write-Log "Error importing functions: $_" "ERROR"
+    Write-Log "Some command functions may not be available" "WARN"
+}
 
 # Function to process command from WebSocket notification
 function Process-CommandFromRealtime {
@@ -112,19 +135,19 @@ function Process-CommandFromRealtime {
     
     switch ($commandData.command_type) {
         "lock" {
-            Write-Log "Executing lock command" "INFO"
+            Write-Log "Queueing lock command for user-session agent" "INFO"
             $success = Lock-Device
         }
         "unlock" {
-            Write-Log "Unlock requires user interaction" "WARN"
-            $errorMsg = "Unlock requires user password/pin"
+            Write-Log "Queueing unlock command for user-session agent" "INFO"
+            $success = Unlock-Device
         }
         "clear_cache" {
-            Write-Log "Executing clear_cache command" "INFO"
+            Write-Log "Queueing clear_cache command for user-session agent" "INFO"
             $success = Clear-DeviceCache
         }
         "buzz" {
-            Write-Log "Executing buzz command" "INFO"
+            Write-Log "Queueing buzz command for user-session agent" "INFO"
             $duration = if ($commandData.duration) { $commandData.duration } else { 5 }
             $success = Buzz-Device -Duration $duration
         }
@@ -162,6 +185,7 @@ $script:reconnectDelay = 5
 $script:maxReconnectDelay = 300
 $script:messageRef = 1
 
+# Helper to send WebSocket messages
 function Send-WebSocketMessage {
     param(
         [System.Net.WebSockets.ClientWebSocket]$ws,
@@ -182,36 +206,49 @@ function Send-WebSocketMessage {
     }
 }
 
+# Connect to Supabase Realtime WebSocket
 function Connect-WebSocket {
     try {
         Write-Log "Connecting to Supabase Realtime..." "INFO"
+        Write-Log "Connecting to: $realtimeUrl" "INFO"
         
         $ws = New-Object System.Net.WebSockets.ClientWebSocket
         $uri = [System.Uri]::new($realtimeUrl)
         
-        # Connect with timeout
-        $connectTask = $ws.ConnectAsync($uri, $script:cancellationTokenSource.Token)
-        $completed = $connectTask.Wait(15000)  # 15 second timeout
-        
-        if (-not $completed -or $ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
-            throw "Connection timeout or failed"
+        # Connect with timeout and error handling
+        try {
+            $connectTask = $ws.ConnectAsync($uri, $script:cancellationTokenSource.Token)
+            $completed = $connectTask.Wait(15000)  # 15 second timeout
+            
+            if (-not $completed -or $ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+                throw "Connection timeout or failed"
+            }
+        } catch {
+            Write-Log "Connect exception (base): $($_.Exception.GetBaseException().Message)" "ERROR"
+            Write-Log "Connect exception (full): $($_.Exception.ToString())" "ERROR"
+            throw
         }
         
         Write-Log "WebSocket connected successfully" "INFO"
         
-        # Join the channel for device_commands table
+        # Join the channel with postgres_changes subscription in config
         $channelName = "realtime:public:device_commands"
         $joinMessage = @{
             topic = $channelName
             event = "phx_join"
             payload = @{
                 config = @{
-                    broadcast = @{
-                        self = $false
-                    }
-                    presence = @{
-                        key = ""
-                    }
+                    broadcast = @{ self = $false }
+                    presence  = @{ key = "" }
+                    postgres_changes = @(
+                        @{
+                            event = "INSERT"
+                            schema = "public"
+                            table = "device_commands"
+                            # No filter initially - we filter in Process-CommandFromRealtime
+                            # Can add filter later if needed: filter = "device_hostname=eq.$DeviceHostname"
+                        }
+                    )
                 }
             }
             ref = $script:messageRef
@@ -221,27 +258,22 @@ function Connect-WebSocket {
             throw "Failed to send join message"
         }
         
-        Write-Log "Sent channel join message" "INFO"
+        Write-Log "Sent channel join message with postgres_changes subscription" "INFO"
         
-        # Subscribe to postgres_changes for INSERT events
-        $subscribeMessage = @{
+        # Send Realtime auth frame (access_token)
+        $accessTokenMessage = @{
             topic = $channelName
-            event = "postgres_changes"
+            event = "access_token"
             payload = @{
-                type = "postgres_changes"
-                event = "INSERT"
-                schema = "public"
-                table = "device_commands"
-                filter = "device_hostname=eq.$DeviceHostname"
+                access_token = $SupabaseKey   # the anon key
             }
             ref = $script:messageRef
         }
+        Send-WebSocketMessage -ws $ws -message $accessTokenMessage | Out-Null
+        Write-Log "Sent access_token message" "INFO"
         
-        if (-not (Send-WebSocketMessage -ws $ws -message $subscribeMessage)) {
-            throw "Failed to send subscription message"
-        }
-        
-        Write-Log "Subscribed to device_commands INSERT events for device: $DeviceHostname" "INFO"
+        # Wait a moment for subscription confirmation
+        Start-Sleep -Milliseconds 1000
         
         return $ws
     } catch {
@@ -253,35 +285,45 @@ function Connect-WebSocket {
     }
 }
 
+# Receive messages loop (simple, no over-engineering)
 function Receive-Messages {
     param([System.Net.WebSockets.ClientWebSocket]$ws)
     
     $buffer = New-Object byte[] 8192
     $fullMessage = New-Object System.Collections.ArrayList
-    $lastHeartbeat = Get-Date
     
     while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open -and -not $script:cancellationTokenSource.Token.IsCancellationRequested) {
         try {
-            # Send heartbeat every 30 seconds
-            if ((Get-Date) - $lastHeartbeat -gt [TimeSpan]::FromSeconds(30)) {
+            # Check connection state before operations
+            if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+                Write-Log "WebSocket state changed to: $($ws.State)" "WARN"
+                break
+            }
+            
+            $segment = New-Object System.ArraySegment[byte] -ArgumentList @(,$buffer)
+            $receiveTask = $ws.ReceiveAsync($segment, $script:cancellationTokenSource.Token)
+            
+            # Wait with fixed 60s timeout
+            $completed = $receiveTask.Wait(60000)
+            
+            # Check state after receive attempt
+            if ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Closed) {
+                Write-Log "WebSocket state is Closed" "WARN"
+                break
+            }
+            
+            if (-not $completed) {
+                # Timeout - send heartbeat and continue
                 $heartbeat = @{
                     topic = "phoenix"
                     event = "heartbeat"
                     payload = @{}
                     ref = $script:messageRef
                 }
-                Send-WebSocketMessage -ws $ws -message $heartbeat | Out-Null
-                $lastHeartbeat = Get-Date
-            }
-            
-            $segment = New-Object System.ArraySegment[byte] -ArgumentList @(,$buffer)
-            $receiveTask = $ws.ReceiveAsync($segment, $script:cancellationTokenSource.Token)
-            
-            # Wait with timeout (30 seconds)
-            $completed = $receiveTask.Wait(30000)
-            
-            if (-not $completed) {
-                continue  # Timeout, continue loop to send heartbeat
+                if (Send-WebSocketMessage -ws $ws -message $heartbeat) {
+                    Write-Log "Heartbeat sent (timeout)" "INFO"
+                }
+                continue
             }
             
             if ($receiveTask.Result.Count -gt 0) {
@@ -292,7 +334,14 @@ function Receive-Messages {
                     $messageText = [System.Text.Encoding]::UTF8.GetString($fullMessage.ToArray())
                     $fullMessage.Clear()
                     
+                    # Process the message
                     Process-WebSocketMessage -MessageText $messageText
+                }
+            } else {
+                # No data received but task completed - might be a close frame
+                if ($receiveTask.Result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+                    Write-Log "Received close frame from server" "WARN"
+                    break
                 }
             }
         } catch {
@@ -300,8 +349,8 @@ function Receive-Messages {
                 Write-Log "Receive cancelled" "INFO"
                 break
             }
-            if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
-                Write-Log "WebSocket connection closed" "WARN"
+            if ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Closed) {
+                Write-Log "WebSocket connection closed: $($_.Exception.Message)" "WARN"
                 break
             }
             Write-Log "Error receiving message: $_" "ERROR"
@@ -310,40 +359,54 @@ function Receive-Messages {
     }
 }
 
+# Process WebSocket messages (correct event handling)
 function Process-WebSocketMessage {
     param([string]$MessageText)
     
     try {
+        # Always log the raw frame
+        Write-Log "RAW WS: $MessageText" "DEBUG"
+        
+        # Parse JSON once
         $message = $MessageText | ConvertFrom-Json
+        $topEvent = $message.event
         
         # Handle phx_reply (acknowledgments)
-        if ($message.event -eq "phx_reply") {
-            if ($message.payload.status -eq "ok") {
-                Write-Log "Subscription confirmed (ref: $($message.ref))" "INFO"
-            } else {
-                Write-Log "Subscription error: $($message.payload.response)" "WARN"
-            }
+        if ($topEvent -eq "phx_reply") {
+            Write-Log "phx_reply: status=$($message.payload.status) response=$($message.payload.response)" "INFO"
             return
         }
         
         # Handle postgres_changes (INSERT events)
-        if ($message.event -eq "postgres_changes" -and $message.payload) {
-            $newRecord = $message.payload.new
+        # IMPORTANT: Check event = "postgres_changes" and then payload.data.type = "INSERT"
+        # Do NOT check event = "INSERT" at the top level - this was a key bug in the old version
+        if ($topEvent -eq "postgres_changes" -and $message.payload -and $message.payload.data) {
+            $data = $message.payload.data
+            Write-Log "postgres_changes: type=$($data.type) table=$($data.table)" "INFO"
             
-            if ($newRecord) {
-                Write-Log "Received postgres_changes event for command: $($newRecord.command_type)" "INFO"
-                Process-CommandFromRealtime -commandData $newRecord
+            if ($data.type -eq "INSERT" -and $data.table -eq "device_commands") {
+                $newRecord = $data.record
+                if ($newRecord) {
+                    Write-Log "Processing INSERT command: $($newRecord.command_type) (ID: $($newRecord.id))" "INFO"
+                    Process-CommandFromRealtime -commandData $newRecord
+                } else {
+                    Write-Log "INSERT event has no record data" "WARN"
+                }
+            } elseif ($data.type -eq "UPDATE" -and $data.table -eq "device_commands") {
+                # Ignore UPDATE events (we only process INSERT)
+                Write-Log "Ignoring UPDATE event for device_commands" "DEBUG"
             }
+            return
         }
         
         # Handle heartbeat responses
-        if ($message.event -eq "heartbeat") {
+        if ($topEvent -eq "heartbeat") {
             # Connection is alive
             return
         }
         
         # Handle phx_close
-        if ($message.event -eq "phx_close") {
+        if ($topEvent -eq "phx_close") {
             Write-Log "Received phx_close event" "WARN"
         }
         
