@@ -18,6 +18,11 @@ if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
 
+# Create log file if it doesn't exist (so it can be monitored immediately)
+if (-not (Test-Path $LogFile)) {
+    New-Item -ItemType File -Path $LogFile -Force | Out-Null
+}
+
 # Logging function
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
