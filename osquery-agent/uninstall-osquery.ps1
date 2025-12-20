@@ -139,8 +139,8 @@ if ($osqueryProduct) {
 Write-Host "Removing scheduled tasks..." -ForegroundColor Yellow
 $taskNames = @(
     "VigyanShaala-MDM-SyncWebsiteBlocklist",
+    "VigyanShaala-MDM-SyncBlocklist",  # Old task name variant
     "VigyanShaala-MDM-SyncSoftwareBlocklist",
-    "VigyanShaala-MDM-SyncBlocklist",  # Old task name
     "VigyanShaala-MDM-SendOsqueryData",
     "VigyanShaala-MDM-CollectBatteryData",
     "VigyanShaala-MDM-RealtimeListener",
