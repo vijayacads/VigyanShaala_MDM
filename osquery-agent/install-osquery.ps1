@@ -294,6 +294,18 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "`n[3/6] Creating scheduled task for realtime command listener (WebSocket)..." -ForegroundColor Cyan
     $realtimeScript = "$InstallDir\realtime-command-listener.ps1"
     if (Test-Path "realtime-command-listener.ps1") {
+        # Stop task if running to unlock the file
+        $taskName = "VigyanShaala-MDM-RealtimeListener"
+        try {
+            Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        } catch {}
+        
+        # Force copy (overwrite even if file is read-only)
+        if (Test-Path $realtimeScript) {
+            $file = Get-Item $realtimeScript
+            $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+        }
         Copy-Item "realtime-command-listener.ps1" $realtimeScript -Force
         Write-Host "realtime-command-listener.ps1 copied" -ForegroundColor Green
     } else {
