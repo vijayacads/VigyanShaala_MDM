@@ -80,3 +80,6 @@ Then create a command in the dashboard and verify it's processed immediately.
 - Verify Supabase Realtime is enabled for `device_commands` table
 - Check network connectivity to Supabase
 
+
+
+

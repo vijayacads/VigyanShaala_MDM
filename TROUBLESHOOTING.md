@@ -147,3 +147,6 @@ SELECT * FROM devices WHERE hostname = 'TEST-DEVICE';
 
 If this works, the issue is with the installer script. If this fails, check table structure and RLS policies.
 
+
+
+

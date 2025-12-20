@@ -56,3 +56,6 @@ The app will prompt for Supabase credentials during enrollment, or you can pre-c
 Go to Settings > Apps > VigyanShaala MDM > Uninstall
 Note: Removing the app will also remove all blocking policies.
 
+
+
+

@@ -43,3 +43,6 @@ END $$;
 -- 3. Or wait 1-2 minutes for automatic refresh
 -- 4. Or restart your Supabase project
 
+
+
+

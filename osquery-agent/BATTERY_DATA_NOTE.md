@@ -36,3 +36,6 @@ Battery data will be `null` in the database until:
 
 The system will still work - battery will just show as `null` in the dashboard.
 
+
+
+

@@ -124,3 +124,6 @@ Remove-Item "C:\Program Files\osquery" -Recurse -Force
 4. **Monitor service status** via dashboard
 5. **Create admin-only account** separate from student accounts
 
+
+
+

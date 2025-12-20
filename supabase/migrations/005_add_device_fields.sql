@@ -12,3 +12,6 @@ CREATE INDEX IF NOT EXISTS idx_devices_inventory_code ON devices(device_inventor
 
 -- Update existing devices with placeholder values (optional)
 -- UPDATE devices SET device_inventory_code = 'INV-' || LPAD(id::TEXT, 6, '0') WHERE device_inventory_code IS NULL;
+
+
+

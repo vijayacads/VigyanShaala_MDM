@@ -79,3 +79,6 @@ In the Supabase Dashboard logs view:
 - Note the `execution_id` from one log entry
 - Filter/search for that execution_id to see all logs from that request
 
+
+
+

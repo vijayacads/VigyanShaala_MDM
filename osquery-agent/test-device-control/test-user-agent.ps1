@@ -39,3 +39,6 @@ Write-Host "Agent started. It will poll every 2 seconds." -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
+
+
+

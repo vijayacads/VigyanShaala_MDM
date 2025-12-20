@@ -38,3 +38,6 @@ Write-Host "`n3. Render will auto-deploy dashboard" -ForegroundColor White
 Write-Host "`n4. Installer available at:" -ForegroundColor White
 Write-Host "   https://your-dashboard.onrender.com/downloads/VigyanShaala-MDM-Installer.zip" -ForegroundColor Gray
 
+
+
+

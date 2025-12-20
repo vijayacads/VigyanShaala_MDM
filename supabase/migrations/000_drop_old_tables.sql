@@ -20,3 +20,6 @@ DROP SEQUENCE IF EXISTS device_id_seq CASCADE;
 
 -- Drop functions
 DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+
+
+

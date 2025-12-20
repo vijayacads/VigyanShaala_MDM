@@ -63,3 +63,6 @@
 - [ ] Check that fleet_uuid column is gone from devices table
 - [ ] Verify RLS policies still work correctly
 
+
+
+

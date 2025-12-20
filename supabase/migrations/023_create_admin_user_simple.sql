@@ -27,3 +27,6 @@ SELECT
 FROM auth.users 
 WHERE email = 'Digital_Delivery@vigyanshaala.org';
 
+
+
+

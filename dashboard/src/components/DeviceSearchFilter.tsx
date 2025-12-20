@@ -104,3 +104,6 @@ export default function DeviceSearchFilter({ onFilterChange }: DeviceSearchFilte
     </div>
   )
 }
+
+
+

@@ -46,3 +46,6 @@ CREATE POLICY "Authenticated users can read device health"
 -- - INSERT/UPDATE device_health (via edge function with service role)
 -- =====================================================
 
+
+
+

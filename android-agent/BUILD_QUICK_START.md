@@ -65,3 +65,6 @@ APK location: `app/build/outputs/apk/debug/app-debug.apk`
 
 The code structure is complete - you just need to compile it!
 
+
+
+

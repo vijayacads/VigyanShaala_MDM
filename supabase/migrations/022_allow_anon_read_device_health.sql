@@ -14,3 +14,6 @@ CREATE POLICY "Allow all users to read device health"
 -- Note: This matches the policy on devices table (migration 009)
 -- The dashboard uses anon key, so it needs this policy to display health data
 
+
+
+

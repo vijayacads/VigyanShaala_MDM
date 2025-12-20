@@ -26,3 +26,6 @@ END $$;
 -- Verify the sequence
 SELECT setval('device_id_seq', (SELECT COALESCE(MAX(id), 100000) FROM devices), false);
 
+
+
+

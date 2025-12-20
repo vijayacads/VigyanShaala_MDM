@@ -13,3 +13,6 @@ CREATE POLICY "Allow all users to read devices"
 -- Note: INSERT is already allowed by migration 006
 -- UPDATE/DELETE remain restricted (only admins can modify)
 
+
+
+

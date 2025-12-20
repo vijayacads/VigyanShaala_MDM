@@ -115,3 +115,6 @@ Render will use `dashboard/Dockerfile`.
 
 Both approaches work the same way for your React app - they just package it differently!
 
+
+
+

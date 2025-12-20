@@ -71,3 +71,6 @@ CREATE POLICY "Users see web activity for accessible devices"
 -- Note: Device SELECT policy may also need updating if it references assigned_teacher_id
 -- Check migration 006 and 009 for device policies
 
+
+
+

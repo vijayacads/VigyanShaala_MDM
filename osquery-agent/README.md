@@ -28,3 +28,6 @@ Use WiX Toolset to create MSI installer that:
 2. Runs `enroll-fleet.ps1` post-install
 3. Configures osquery service
 
+
+
+

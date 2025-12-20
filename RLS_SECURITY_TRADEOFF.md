@@ -43,3 +43,6 @@ After running migration 024, anon users **cannot** read devices or device_health
 2. Trying to enroll again (will fail if already enrolled)
 3. Checking if scheduled tasks are running (indicates successful enrollment)
 
+
+
+

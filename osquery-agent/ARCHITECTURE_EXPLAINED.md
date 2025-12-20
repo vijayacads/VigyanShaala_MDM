@@ -316,3 +316,6 @@ FLEET_SERVER_URL=https://fleet.example.com (optional)
 - **Connection**: Devices → Supabase (push data)
 - **Dashboard**: Supabase → Dashboard (pull/real-time)
 - **No peer-to-peer**: All goes through Supabase
+
+
+

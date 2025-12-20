@@ -15,3 +15,6 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Run the apply script
 & "$scriptDir\apply-software-blocklist.ps1" -SupabaseUrl $SupabaseUrl -SupabaseAnonKey $SupabaseAnonKey
 
+
+
+

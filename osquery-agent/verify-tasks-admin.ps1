@@ -68,3 +68,6 @@ if ($foundCount -lt $taskNames.Count) {
     Write-Host "  .\fix-all-scheduled-tasks.ps1 -SupabaseUrl 'YOUR_URL' -SupabaseKey 'YOUR_KEY'" -ForegroundColor White
 }
 
+
+
+

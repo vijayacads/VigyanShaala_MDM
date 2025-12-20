@@ -58,3 +58,6 @@
 - Verify device has internet connection
 - Check Supabase credentials are correct
 
+
+
+

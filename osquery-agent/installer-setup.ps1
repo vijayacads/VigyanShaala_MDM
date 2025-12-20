@@ -69,3 +69,6 @@ Write-Host "1. Review and configure osquery.conf" -ForegroundColor White
 Write-Host "2. Update enroll-fleet.ps1 with your Supabase/Fleet URLs" -ForegroundColor White
 Write-Host "3. Package everything into an MSI using WiX Toolset" -ForegroundColor White
 Write-Host "4. Or use this directory structure with a custom installer" -ForegroundColor White
+
+
+

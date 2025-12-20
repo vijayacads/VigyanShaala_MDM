@@ -18,3 +18,6 @@ WITH CHECK (true);
 
 -- Note: service_role should bypass RLS by default, but explicit policies ensure compatibility
 
+
+
+

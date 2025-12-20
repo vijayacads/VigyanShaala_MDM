@@ -128,3 +128,6 @@ COMMENT ON COLUMN device_health.boot_time_avg_seconds IS 'Average boot time in s
 COMMENT ON COLUMN device_health.crash_error_count IS 'Number of crashes/errors detected';
 COMMENT ON COLUMN device_health.performance_status IS 'Calculated status: good, warning, or critical';
 
+
+
+

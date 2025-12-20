@@ -100,3 +100,6 @@ Once the package is created and copied to the dashboard:
 - All new features are automatically set up
 - Enrollment wizard will launch after installation
 
+
+
+

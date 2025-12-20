@@ -103,3 +103,6 @@ If still empty, check:
 - Environment variables are correct in Render
 - Tables have data (run SELECT queries above)
 - No console errors in browser
+
+
+

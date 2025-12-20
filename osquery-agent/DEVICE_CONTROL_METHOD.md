@@ -107,3 +107,6 @@ If WebSocket connection fails:
 - Could add dashboard indicator for WebSocket connection state
 - Could implement command queue for offline devices (future enhancement)
 
+
+
+

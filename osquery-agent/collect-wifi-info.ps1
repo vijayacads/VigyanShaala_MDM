@@ -64,3 +64,6 @@ if ($OutputFormat -eq "json") {
     Write-Output $wifiInfo
 }
 
+
+
+

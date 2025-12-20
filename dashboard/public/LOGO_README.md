@@ -21,3 +21,6 @@ If the logo file is not found, the image will not display but the page will stil
 2. The logo will automatically appear in the header
 3. No code changes needed - just replace the file
 
+
+
+

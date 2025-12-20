@@ -61,3 +61,6 @@ CREATE TRIGGER update_location_wifi_mappings_updated_at_trigger
 COMMENT ON TABLE location_wifi_mappings IS 'Maps WiFi SSIDs to locations for automatic location assignment';
 COMMENT ON COLUMN location_wifi_mappings.signal_strength_threshold IS 'Minimum signal strength percentage required for location match';
 
+
+
+

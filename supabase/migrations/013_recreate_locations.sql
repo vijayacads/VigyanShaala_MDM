@@ -83,3 +83,6 @@ BEGIN
     RAISE NOTICE 'Total locations: %', (SELECT COUNT(*) FROM locations);
 END $$;
 
+
+
+

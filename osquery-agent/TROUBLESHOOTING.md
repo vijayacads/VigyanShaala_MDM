@@ -54,3 +54,6 @@
 4. **Search GitHub issues** for similar problems before creating new issues
 5. **Use WMI fallback** for battery data on older osquery versions
 
+
+
+

@@ -126,3 +126,6 @@ Every 5 minutes:
 ✅ `last_seen` updates automatically  
 ✅ Dashboard shows health metrics  
 
+
+
+

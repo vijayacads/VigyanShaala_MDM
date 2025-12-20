@@ -41,3 +41,6 @@
 11. ✅ Remove device from Supabase dashboard
 12. ⚠️ Environment variables (optional - currently kept for reinstall)
 
+
+
+

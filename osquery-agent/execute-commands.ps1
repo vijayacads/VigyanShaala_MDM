@@ -18,92 +18,171 @@ $DeviceHostname = $DeviceHostname.Trim().ToUpper()
 Write-Host "Normalized device hostname: '$DeviceHostname'" -ForegroundColor Cyan
 Write-Host "Original COMPUTERNAME: '$env:COMPUTERNAME'" -ForegroundColor Gray
 
-# Function to execute lock command
+# Function to queue unlock command for user-session agent
+function Unlock-Device {
+    Write-Host "Queueing unlock command for user-session agent..." -ForegroundColor Yellow
+    try {
+        # Get logged-in user
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, cannot unlock device"
+            return $false
+        }
+        
+        # Normalize username
+        $normalizedUsername = $loggedInUser
+        
+        # Write notification to user_notifications table
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "unlock"
+            payload = @{}
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Unlock command queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Error "Failed to queue unlock command: $_"
+        return $false
+    }
+}
+
+# Function to queue lock command for user-session agent
+# Lock requires interactive session, so we queue it like buzz
 function Lock-Device {
-    Write-Host "Locking device..." -ForegroundColor Yellow
+    Write-Host "Queueing lock command for user-session agent..." -ForegroundColor Yellow
     try {
-        rundll32.exe user32.dll,LockWorkStation
+        # Get logged-in user
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, cannot lock device"
+            return $false
+        }
+        
+        # Normalize username
+        $normalizedUsername = $loggedInUser
+        
+        # Write notification to user_notifications table
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "lock"
+            payload = @{}
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Lock command queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
         return $true
     } catch {
-        Write-Error "Failed to lock device: $_"
+        Write-Error "Failed to queue lock command: $_"
         return $false
     }
 }
 
-# Function to execute clear cache command
+# Function to queue clear cache command for user-session agent
 function Clear-DeviceCache {
-    Write-Host "Clearing device cache..." -ForegroundColor Yellow
+    Write-Host "Queueing clear cache command for user-session agent..." -ForegroundColor Yellow
     try {
-        # Clear temp files
-        Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
-        
-        # Clear browser caches
-        $chromeCache = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache"
-        $edgeCache = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache"
-        
-        if (Test-Path $chromeCache) {
-            Remove-Item "$chromeCache\*" -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        if (Test-Path $edgeCache) {
-            Remove-Item "$edgeCache\*" -Recurse -Force -ErrorAction SilentlyContinue
+        # Get logged-in user
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, cannot clear cache"
+            return $false
         }
         
-        # Clear Windows temp
-        Remove-Item "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+        # Normalize username
+        $normalizedUsername = $loggedInUser
         
-        Write-Host "Cache cleared successfully" -ForegroundColor Green
+        # Write notification to user_notifications table
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "clear_cache"
+            payload = @{}
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Clear cache command queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
         return $true
     } catch {
-        Write-Error "Failed to clear cache: $_"
+        Write-Error "Failed to queue clear cache command: $_"
         return $false
     }
 }
 
-# Function to play buzzer sound directly (works from SYSTEM account)
+# Function to queue buzzer sound for user-session agent
 function Buzz-Device {
     param([int]$Duration = 5)
     
-    Write-Host "Playing buzzer sound directly..." -ForegroundColor Yellow
+    Write-Host "Queueing buzzer sound for user-session agent..." -ForegroundColor Yellow
     try {
-        # Use Windows API MessageBeep - works from SYSTEM account
-        Add-Type -TypeDefinition @"
-            using System;
-            using System.Runtime.InteropServices;
-            public class Beep {
-                [DllImport("user32.dll")]
-                public static extern bool MessageBeep(uint uType);
-            }
-"@
-        
-        $endTime = (Get-Date).AddSeconds($Duration)
-        $beepCount = 0
-        $beepInterval = 500  # milliseconds between beeps
-        
-        while ((Get-Date) -lt $endTime) {
-            # MessageBeep types: 0xFFFFFFFF = simple beep, 0x00000010 = asterisk, 0x00000030 = exclamation
-            # Using 0xFFFFFFFF (simple beep) - works from SYSTEM account
-            [Beep]::MessageBeep(0xFFFFFFFF)
-            $beepCount++
-            
-            # Check if we have time for another beep
-            $timeRemaining = ($endTime - (Get-Date)).TotalMilliseconds
-            if ($timeRemaining -gt $beepInterval) {
-                Start-Sleep -Milliseconds $beepInterval
-            } else {
-                break
-            }
+        # Get logged-in user (normalize to match user agent format)
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, cannot play buzzer"
+            return $false
         }
         
-        Write-Host "Buzzer played for $Duration seconds ($beepCount beeps)" -ForegroundColor Green
+        # Normalize username format (domain\user or just user) to match user agent
+        $normalizedUsername = $loggedInUser
+        
+        # Write notification to user_notifications table for user-session agent to process
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "buzzer"
+            payload = @{
+                duration = $Duration
+            }
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Buzzer queued for user-session agent (notification ID: $($response.id), duration: $Duration seconds)" -ForegroundColor Green
         return $true
     } catch {
-        Write-Error "Failed to play buzzer: $_"
-        # Fallback: try console beep (may not work from SYSTEM)
-        try {
-            [console]::beep(800, 500)
-        } catch {
-            Write-Warning "Console beep also failed"
-        }
+        Write-Error "Failed to queue buzzer: $_"
         return $false
     }
 }

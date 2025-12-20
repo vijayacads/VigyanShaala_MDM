@@ -15,3 +15,6 @@ WHERE radius_meters IS NULL
 -- Ensure NOT NULL constraint (should already exist, but making sure)
 ALTER TABLE locations 
   ALTER COLUMN radius_meters SET NOT NULL;
+
+
+

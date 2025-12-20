@@ -47,3 +47,6 @@ If command stays "pending":
 - Check if script has correct Supabase credentials
 - Check RLS policies allow anon access to device_commands table
 
+
+
+

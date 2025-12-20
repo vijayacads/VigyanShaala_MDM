@@ -127,3 +127,6 @@ Write-Host "  - Uninstall registry keys removed"
 Write-Host "  - Watchdog task created (auto-restart if stopped)"
 Write-Host "`nNote: Students cannot uninstall or modify osquery without admin rights."
 
+
+
+

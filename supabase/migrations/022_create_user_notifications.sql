@@ -79,3 +79,6 @@ CREATE POLICY "Allow anon to select user notifications"
 -- Add comment
 COMMENT ON TABLE user_notifications IS 'Stores notifications that need to be displayed in user interactive sessions (buzzer, toast)';
 
+
+
+

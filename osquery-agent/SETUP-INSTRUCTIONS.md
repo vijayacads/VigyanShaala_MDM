@@ -68,3 +68,6 @@ This will create:
 - Consider adding rate limiting in production
 - Consider using Supabase Edge Functions for additional validation
 
+
+
+

@@ -22,3 +22,6 @@ CREATE POLICY "Locations are readable by all"
 -- Note: For production, you may want to add additional validation
 -- such as rate limiting or API key validation in Supabase Edge Functions
 
+
+
+

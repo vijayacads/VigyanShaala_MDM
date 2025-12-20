@@ -54,3 +54,6 @@ ALTER TABLE software_blocklist DISABLE ROW LEVEL SECURITY;
 --     ON software_blocklist FOR SELECT
 --     TO anon, authenticated
 --     USING (true);
+
+
+
