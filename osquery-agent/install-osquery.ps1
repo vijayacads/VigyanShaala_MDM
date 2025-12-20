@@ -28,6 +28,72 @@ if (-not $isAdmin) {
 
 Write-Host "Installing osquery agent..." -ForegroundColor Green
 
+# Step 0: Stop all MDM tasks and processes before installation (to unlock files)
+Write-Host "`n[Pre-install] Stopping all MDM tasks and processes..." -ForegroundColor Yellow
+$mdmTasks = @(
+    "VigyanShaala-MDM-RealtimeListener",
+    "VigyanShaala-MDM-UserNotify-Agent",
+    "VigyanShaala-UserNotify-Agent",
+    "VigyanShaala-MDM-SendOsqueryData",
+    "VigyanShaala-MDM-CollectBatteryData",
+    "VigyanShaala-MDM-SyncWebsiteBlocklist",
+    "VigyanShaala-MDM-SyncSoftwareBlocklist",
+    "VigyanShaala-MDM-CommandProcessor"
+)
+
+foreach ($taskName in $mdmTasks) {
+    try {
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($task) {
+            Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+            Write-Host "  Stopped task: $taskName" -ForegroundColor Gray
+        }
+    } catch {}
+}
+
+# Stop all osquery and PowerShell processes that might be locking files
+Start-Sleep -Seconds 2
+Get-Process | Where-Object { $_.ProcessName -like "*osquery*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process | Where-Object { 
+    $_.ProcessName -eq "powershell" -and 
+    $_.Path -and 
+    $_.Path.StartsWith($InstallDir, [System.StringComparison]::OrdinalIgnoreCase)
+} | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+Write-Host "All tasks and processes stopped" -ForegroundColor Green
+
+# Helper function to force copy files (removes read-only, handles locked files)
+function Copy-FileForce {
+    param(
+        [string]$Source,
+        [string]$Destination
+    )
+    
+    # Create destination directory if it doesn't exist
+    $destDir = Split-Path -Parent $Destination
+    if (-not (Test-Path $destDir)) {
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+    }
+    
+    # If destination exists, remove read-only attribute
+    if (Test-Path $Destination) {
+        try {
+            $file = Get-Item $Destination -ErrorAction Stop
+            $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+        } catch {
+            # File might be locked, wait and retry
+            Start-Sleep -Milliseconds 500
+            try {
+                $file = Get-Item $Destination -ErrorAction Stop
+                $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+            } catch {}
+        }
+    }
+    
+    # Copy with force
+    Copy-Item $Source $Destination -Force
+}
+
 # Step 1: Install osquery MSI silently
 if (Test-Path $OsqueryMsi) {
     Write-Host "Installing osquery from: $OsqueryMsi" -ForegroundColor Yellow
@@ -48,20 +114,21 @@ if (Test-Path $OsqueryMsi) {
 # Step 2: Copy configuration files
 $configDir = "$InstallDir\osquery.conf"
 if (Test-Path "osquery.conf") {
-    Copy-Item "osquery.conf" $configDir -Force
-    Write-Host "Configuration file copied" -ForegroundColor Green
+    Copy-FileForce -Source "osquery.conf" -Destination $configDir
+    Write-Host "Configuration file copied (overwritten)" -ForegroundColor Green
 } else {
     Write-Warning "osquery.conf not found - using default configuration"
 }
 
-# Step 3: Copy enrollment scripts
+# Step 3: Copy enrollment scripts (force overwrite)
 $enrollScript = "$InstallDir\enroll-device.ps1"
 if (Test-Path "enroll-device.ps1") {
-    Copy-Item "enroll-device.ps1" $enrollScript -Force
-    Write-Host "Enrollment script copied" -ForegroundColor Green
+    Copy-FileForce -Source "enroll-device.ps1" -Destination $enrollScript
+    Write-Host "Enrollment script copied (overwritten)" -ForegroundColor Green
 } elseif (Test-Path "enroll-fleet.ps1") {
-    Copy-Item "enroll-fleet.ps1" "$InstallDir\enroll-fleet.ps1" -Force
-    Write-Host "Legacy enrollment script copied" -ForegroundColor Green
+    $fleetScript = "$InstallDir\enroll-fleet.ps1"
+    Copy-FileForce -Source "enroll-fleet.ps1" -Destination $fleetScript
+    Write-Host "Legacy enrollment script copied (overwritten)" -ForegroundColor Green
 }
 
 # Step 4: Set environment variables for enrollment
@@ -150,7 +217,7 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "Applying initial website blocklist..." -ForegroundColor Gray
     $websiteBlocklistScript = "$InstallDir\apply-website-blocklist.ps1"
     if (Test-Path "apply-website-blocklist.ps1") {
-        Copy-Item "apply-website-blocklist.ps1" $websiteBlocklistScript -Force
+        Copy-FileForce -Source "apply-website-blocklist.ps1" -Destination $websiteBlocklistScript
         try {
             & $websiteBlocklistScript -SupabaseUrl $SupabaseUrl -SupabaseAnonKey $SupabaseKey
             Write-Host "Website blocklist applied" -ForegroundColor Green
@@ -162,7 +229,7 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "Creating scheduled task for website blocklist sync..." -ForegroundColor Gray
     $websiteSyncScript = "$InstallDir\sync-blocklist-scheduled.ps1"
     if (Test-Path "sync-blocklist-scheduled.ps1") {
-        Copy-Item "sync-blocklist-scheduled.ps1" $websiteSyncScript -Force
+        Copy-FileForce -Source "sync-blocklist-scheduled.ps1" -Destination $websiteSyncScript
     }
     
     $websiteTaskName = "VigyanShaala-MDM-SyncWebsiteBlocklist"
@@ -187,7 +254,7 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "Applying initial software blocklist..." -ForegroundColor Gray
     $softwareBlocklistScript = "$InstallDir\apply-software-blocklist.ps1"
     if (Test-Path "apply-software-blocklist.ps1") {
-        Copy-Item "apply-software-blocklist.ps1" $softwareBlocklistScript -Force
+        Copy-FileForce -Source "apply-software-blocklist.ps1" -Destination $softwareBlocklistScript
         try {
             & $softwareBlocklistScript -SupabaseUrl $SupabaseUrl -SupabaseAnonKey $SupabaseKey
             Write-Host "Software blocklist checked and applied" -ForegroundColor Green
@@ -199,7 +266,7 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "Creating scheduled task for software blocklist sync..." -ForegroundColor Gray
     $softwareSyncScript = "$InstallDir\sync-software-blocklist-scheduled.ps1"
     if (Test-Path "sync-software-blocklist-scheduled.ps1") {
-        Copy-Item "sync-software-blocklist-scheduled.ps1" $softwareSyncScript -Force
+        Copy-FileForce -Source "sync-software-blocklist-scheduled.ps1" -Destination $softwareSyncScript
     }
     
     $softwareTaskName = "VigyanShaala-MDM-SyncSoftwareBlocklist"
@@ -228,8 +295,8 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "`n[1/6] Creating scheduled task to send osquery data..." -ForegroundColor Cyan
     $sendDataScript = "$InstallDir\send-osquery-data.ps1"
     if (Test-Path "send-osquery-data.ps1") {
-        Copy-Item "send-osquery-data.ps1" $sendDataScript -Force
-        Write-Host "send-osquery-data.ps1 copied" -ForegroundColor Green
+        Copy-FileForce -Source "send-osquery-data.ps1" -Destination $sendDataScript
+        Write-Host "send-osquery-data.ps1 copied (overwritten)" -ForegroundColor Green
     } else {
         Write-Warning "send-osquery-data.ps1 not found in current directory - task may fail"
     }
@@ -267,8 +334,8 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "`n[2/6] Creating scheduled task for battery data collection (WMI)..." -ForegroundColor Cyan
     $batteryScript = "$InstallDir\get-battery-wmi.ps1"
     if (Test-Path "get-battery-wmi.ps1") {
-        Copy-Item "get-battery-wmi.ps1" $batteryScript -Force
-        Write-Host "get-battery-wmi.ps1 copied" -ForegroundColor Green
+        Copy-FileForce -Source "get-battery-wmi.ps1" -Destination $batteryScript
+        Write-Host "get-battery-wmi.ps1 copied (overwritten)" -ForegroundColor Green
     } else {
         Write-Warning "get-battery-wmi.ps1 not found - battery data collection will not work"
     }
@@ -306,8 +373,8 @@ if ($SupabaseUrl -and $SupabaseKey) {
             $file = Get-Item $realtimeScript
             $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
         }
-        Copy-Item "realtime-command-listener.ps1" $realtimeScript -Force
-        Write-Host "realtime-command-listener.ps1 copied" -ForegroundColor Green
+        Copy-FileForce -Source "realtime-command-listener.ps1" -Destination $realtimeScript
+        Write-Host "realtime-command-listener.ps1 copied (overwritten)" -ForegroundColor Green
     } else {
         Write-Warning "realtime-command-listener.ps1 not found - realtime command processing will not work"
     }
@@ -315,8 +382,8 @@ if ($SupabaseUrl -and $SupabaseKey) {
     # Copy execute-commands.ps1 (required by realtime listener for function imports)
     $commandScript = "$InstallDir\execute-commands.ps1"
     if (Test-Path "execute-commands.ps1") {
-        Copy-Item "execute-commands.ps1" $commandScript -Force
-        Write-Host "execute-commands.ps1 copied (required by realtime listener)" -ForegroundColor Green
+        Copy-FileForce -Source "execute-commands.ps1" -Destination $commandScript
+        Write-Host "execute-commands.ps1 copied (overwritten, required by realtime listener)" -ForegroundColor Green
     } else {
         Write-Warning "execute-commands.ps1 not found - realtime listener will not work"
     }
@@ -385,8 +452,8 @@ if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "`n[6/6] Setting up user-session notification agent..." -ForegroundColor Cyan
     $userNotifyScript = "$InstallDir\user-notify-agent.ps1"
     if (Test-Path "user-notify-agent.ps1") {
-        Copy-Item "user-notify-agent.ps1" $userNotifyScript -Force
-        Write-Host "user-notify-agent.ps1 copied" -ForegroundColor Green
+        Copy-FileForce -Source "user-notify-agent.ps1" -Destination $userNotifyScript
+        Write-Host "user-notify-agent.ps1 copied (overwritten)" -ForegroundColor Green
     } else {
         Write-Warning "user-notify-agent.ps1 not found - user notifications will not work"
     }
@@ -476,17 +543,17 @@ if ($SupabaseUrl -and $SupabaseKey) {
     
     # Copy chat interface script
     if (Test-Path "chat-interface.ps1") {
-        Copy-Item "chat-interface.ps1" "$InstallDir\chat-interface.ps1" -Force
+        Copy-FileForce -Source "chat-interface.ps1" -Destination "$InstallDir\chat-interface.ps1"
         Write-Host "Chat interface script copied" -ForegroundColor Green
     }
     
     # Copy logo if available (for desktop shortcut icon)
     $logoPath = "$InstallDir\Logo.png"
     if (Test-Path "Logo.png") {
-        Copy-Item "Logo.png" $logoPath -Force
+        Copy-FileForce -Source "Logo.png" -Destination $logoPath
         Write-Host "Logo copied" -ForegroundColor Green
     } elseif (Test-Path "..\dashboard\public\Logo.png") {
-        Copy-Item "..\dashboard\public\Logo.png" $logoPath -Force
+        Copy-FileForce -Source "..\dashboard\public\Logo.png" -Destination $logoPath
         Write-Host "Logo copied from dashboard" -ForegroundColor Green
     }
     

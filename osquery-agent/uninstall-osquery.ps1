@@ -63,14 +63,37 @@ $serviceName = "osqueryd"
 $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 
 if ($service) {
-    Write-Host "Stopping osquery service..." -ForegroundColor Yellow
+    Write-Host "Stopping and disabling osquery service..." -ForegroundColor Yellow
     try {
-        Stop-Service -Name $serviceName -Force -ErrorAction Stop
-        Start-Sleep -Seconds 2
-        Write-Host "Service stopped" -ForegroundColor Green
+        # First, disable the service to prevent it from restarting
+        Set-Service -Name $serviceName -StartupType Disabled -ErrorAction SilentlyContinue
+        
+        # Then stop the service gracefully
+        if ($service.Status -eq 'Running') {
+            Stop-Service -Name $serviceName -Force -ErrorAction Stop
+            # Wait longer for service to fully stop and release file handles
+            $timeout = 15
+            $elapsed = 0
+            while ($elapsed -lt $timeout) {
+                Start-Sleep -Seconds 1
+                $elapsed++
+                $service.Refresh()
+                if ($service.Status -ne 'Running') {
+                    break
+                }
+            }
+        }
+        # Additional wait for file handles to be fully released
+        Start-Sleep -Seconds 3
+        Write-Host "Service stopped and disabled" -ForegroundColor Green
     } catch {
         Write-Warning "Could not stop service: $_"
+        # Force kill the service process as fallback
+        Get-Process | Where-Object { $_.ProcessName -like "*osquery*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+        Set-Service -Name $serviceName -StartupType Disabled -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
     }
+}
     
     Write-Host "Removing osquery service..." -ForegroundColor Yellow
     try {
@@ -112,7 +135,7 @@ if ($osqueryProduct) {
     }
 }
 
-# Step 4: Remove scheduled tasks
+# Step 4: Remove scheduled tasks (comprehensive list)
 Write-Host "Removing scheduled tasks..." -ForegroundColor Yellow
 $taskNames = @(
     "VigyanShaala-MDM-SyncWebsiteBlocklist",
@@ -120,10 +143,16 @@ $taskNames = @(
     "VigyanShaala-MDM-SendOsqueryData",
     "VigyanShaala-MDM-CollectBatteryData",
     "VigyanShaala-MDM-RealtimeListener",
-    "VigyanShaala-UserNotify-Agent"
+    "VigyanShaala-MDM-UserNotify-Agent",
+    "VigyanShaala-UserNotify-Agent",
+    "VigyanShaala-MDM-CommandProcessor"
 )
 
 foreach ($taskName in $taskNames) {
+    # Stop task first, then remove
+    try {
+        Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    } catch {}
     try {
         $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
         if ($task) {
@@ -142,33 +171,68 @@ if (Test-Path $InstallDir) {
         # Wait a bit to ensure service is fully stopped
         Start-Sleep -Seconds 3
         
-        # Kill any processes that might be locking files in the directory
+        # Kill ALL processes that might be locking files (more aggressive)
         Write-Host "Checking for processes locking files..." -ForegroundColor Yellow
-        Get-Process | Where-Object { 
-            $_.Path -and $_.Path.StartsWith($InstallDir, [System.StringComparison]::OrdinalIgnoreCase)
-        } | ForEach-Object {
-            Write-Host "Killing process locking files: $($_.Name) (PID: $($_.Id))" -ForegroundColor Yellow
+        
+        # Kill osquery processes
+        Get-Process | Where-Object { $_.ProcessName -like "*osquery*" } | ForEach-Object {
+            Write-Host "Killing osquery process: $($_.Name) (PID: $($_.Id))" -ForegroundColor Yellow
             Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
-        Start-Sleep -Seconds 2
+        
+        # Kill PowerShell processes running scripts from install directory
+        Get-Process | Where-Object { 
+            $_.ProcessName -eq "powershell" -and 
+            $_.Path -and 
+            $_.Path.StartsWith($InstallDir, [System.StringComparison]::OrdinalIgnoreCase)
+        } | ForEach-Object {
+            Write-Host "Killing PowerShell process: $($_.Name) (PID: $($_.Id))" -ForegroundColor Yellow
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Also check by command line for any PowerShell running our scripts
+        Get-WmiObject Win32_Process | Where-Object {
+            $_.CommandLine -like "*$InstallDir*" -and $_.Name -eq "powershell.exe"
+        } | ForEach-Object {
+            Write-Host "Killing PowerShell process (by command line): PID $($_.ProcessId)" -ForegroundColor Yellow
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+        
+        Start-Sleep -Seconds 3
         
         # Try to remove files individually first (more reliable than removing entire directory)
-        Write-Host "Removing files individually..." -ForegroundColor Yellow
+        Write-Host "Removing files individually (with ownership changes)..." -ForegroundColor Yellow
         $files = Get-ChildItem -Path $InstallDir -Recurse -Force -ErrorAction SilentlyContinue
         foreach ($file in $files) {
             try {
-                if ($file.PSIsContainer) {
-                    Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction SilentlyContinue
-                } else {
-                    # Remove read-only attribute if present
-                    $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
-                    Remove-Item -Path $file.FullName -Force -ErrorAction SilentlyContinue
+                if (-not $file.PSIsContainer) {
+                    # Remove read-only/system attributes
+                    $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly) -band (-bnot [System.IO.FileAttributes]::System)
+                    
+                    # Take ownership and grant full control (if takeown/icacls available)
+                    try {
+                        $null = & takeown.exe /F $file.FullName /A 2>&1
+                        $null = & icacls.exe $file.FullName /grant Administrators:F /T 2>&1
+                    } catch {
+                        # takeown/icacls might not be available, continue anyway
+                    }
                 }
+                Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction SilentlyContinue
             } catch {
-                # Ignore individual file errors, continue with others
+                # Try with takeown/icacls one more time
+                try {
+                    if (-not $file.PSIsContainer) {
+                        $null = & takeown.exe /F $file.FullName /A 2>&1
+                        $null = & icacls.exe $file.FullName /grant Administrators:F 2>&1
+                        Start-Sleep -Milliseconds 200
+                        Remove-Item -Path $file.FullName -Force -ErrorAction SilentlyContinue
+                    }
+                } catch {
+                    # Still failed, log but continue
+                }
             }
         }
-        Start-Sleep -Seconds 1
+        Start-Sleep -Seconds 2
         
         # Now try to remove the directory itself
         $maxRetries = 5
@@ -229,24 +293,128 @@ $programDataDir = "$env:ProgramData\osquery"
 if (Test-Path $programDataDir) {
     Write-Host "Removing ProgramData directory..." -ForegroundColor Yellow
     try {
-        # Kill any processes that might be locking files
-        Get-Process | Where-Object { $_.Path -like "*osquery*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
+        # Kill any processes that might be locking files (more aggressive)
+        Write-Host "Killing any remaining osquery processes..." -ForegroundColor Yellow
+        Get-Process | Where-Object { $_.Path -like "*osquery*" -or $_.ProcessName -like "*osquery*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
         
-        Remove-Item -Path $programDataDir -Recurse -Force -ErrorAction Stop
-        Write-Host "ProgramData directory removed" -ForegroundColor Green
+        # Also check for processes with open handles to files in the directory
+        $logFiles = Get-ChildItem -Path "$programDataDir\logs" -File -ErrorAction SilentlyContinue
+        foreach ($logFile in $logFiles) {
+            try {
+                # Try to remove read-only attribute
+                $logFile.Attributes = $logFile.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+                # Try to take ownership (requires admin, which we have)
+                $null = & takeown.exe /F $logFile.FullName 2>&1
+                $null = & icacls.exe $logFile.FullName /grant Administrators:F 2>&1
+            } catch {
+                # Ignore permission errors, continue
+            }
+        }
+        
+        # Wait a bit more for handles to be released
+        Start-Sleep -Seconds 2
+        
+        # Try removing files individually first (more reliable)
+        Write-Host "Removing files individually..." -ForegroundColor Yellow
+        $allFiles = Get-ChildItem -Path $programDataDir -Recurse -Force -ErrorAction SilentlyContinue
+        foreach ($file in $allFiles) {
+            try {
+                if (-not $file.PSIsContainer) {
+                    # Remove attributes that might prevent deletion
+                    $file.Attributes = $file.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly) -band (-bnot [System.IO.FileAttributes]::System)
+                }
+                Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction SilentlyContinue
+            } catch {
+                # Try with takeown/icacls for locked files
+                try {
+                    if (-not $file.PSIsContainer) {
+                        $null = & takeown.exe /F $file.FullName /A 2>&1
+                        $null = & icacls.exe $file.FullName /grant Administrators:F /T 2>&1
+                        Start-Sleep -Milliseconds 200
+                        Remove-Item -Path $file.FullName -Force -ErrorAction SilentlyContinue
+                    }
+                } catch {
+                    # Still failed, log but continue
+                }
+            }
+        }
+        
+        # Now try to remove the directory (use SilentlyContinue to avoid showing error if still locked)
+        Start-Sleep -Seconds 1
+        if (Test-Path $programDataDir) {
+            Remove-Item -Path $programDataDir -Recurse -Force -ErrorAction SilentlyContinue
+            if (-not (Test-Path $programDataDir)) {
+                Write-Host "ProgramData directory removed" -ForegroundColor Green
+            } else {
+                throw "Directory still exists after removal attempt"
+            }
+        } else {
+            Write-Host "ProgramData directory removed" -ForegroundColor Green
+        }
     } catch {
-        Write-Warning "Could not remove ProgramData directory: $_"
-        Write-Host "You may need to manually delete: $programDataDir" -ForegroundColor Yellow
+        Write-Warning "Could not fully remove ProgramData directory: $_"
+        Write-Host "Attempting fallback cleanup..." -ForegroundColor Yellow
+        
+        # Fallback: Try to remove what we can, mark rest for manual cleanup
+        try {
+            # Try one more time with a longer wait
+            Start-Sleep -Seconds 3
+            Get-Process | Where-Object { $_.ProcessName -like "*osquery*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+            
+            # Use robocopy mirror trick to delete locked directories (works when Remove-Item fails)
+            $emptyDir = "$env:TEMP\empty_$(Get-Random)"
+            New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
+            & robocopy.exe $emptyDir $programDataDir /MIR /R:0 /W:0 /NP /NFL /NDL /NJH /NJS 2>&1 | Out-Null
+            Remove-Item -Path $emptyDir -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $programDataDir -Force -ErrorAction SilentlyContinue
+            
+            if (-not (Test-Path $programDataDir)) {
+                Write-Host "ProgramData directory removed using fallback method" -ForegroundColor Green
+            } else {
+                Write-Host "Some files may still be locked. Manual deletion may be required." -ForegroundColor Yellow
+                Write-Host "  Directory: $programDataDir" -ForegroundColor Yellow
+                Write-Host "  Try: Restart the computer, then delete the folder manually." -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "Fallback cleanup also failed. Manual deletion required:" -ForegroundColor Yellow
+            Write-Host "  Directory: $programDataDir" -ForegroundColor Yellow
+            Write-Host "  Try restarting the computer, then delete the folder." -ForegroundColor Yellow
+        }
     }
 }
 
-# Step 6b: Remove any osquery files from temp directories
+# Step 6b: Remove VigyanShaala-MDM log directory
+$mdmLogDir = "$env:ProgramData\VigyanShaala-MDM\logs"
+if (Test-Path $mdmLogDir) {
+    Write-Host "Removing MDM log directory..." -ForegroundColor Yellow
+    try {
+        Remove-Item -Path $mdmLogDir -Recurse -Force -ErrorAction Stop
+        Write-Host "MDM log directory removed" -ForegroundColor Green
+        
+        # Also try to remove parent directory if it's empty
+        $mdmParentDir = "$env:ProgramData\VigyanShaala-MDM"
+        if (Test-Path $mdmParentDir) {
+            $remainingItems = Get-ChildItem -Path $mdmParentDir -Force -ErrorAction SilentlyContinue
+            if ($remainingItems.Count -eq 0) {
+                Remove-Item -Path $mdmParentDir -Force -ErrorAction SilentlyContinue
+                Write-Host "MDM parent directory removed (was empty)" -ForegroundColor Green
+            }
+        }
+    } catch {
+        Write-Warning "Could not remove MDM log directory: $_"
+        Write-Host "You may need to manually delete: $mdmLogDir" -ForegroundColor Yellow
+    }
+}
+
+# Step 6c: Remove any osquery files from temp directories
 Write-Host "Cleaning up temporary files..." -ForegroundColor Yellow
 $tempPaths = @(
     "$env:TEMP\osquery*",
     "$env:LOCALAPPDATA\Temp\osquery*",
-    "$env:ProgramData\Temp\osquery*"
+    "$env:ProgramData\Temp\osquery*",
+    "$env:TEMP\VigyanShaala-*.log",
+    "$env:LOCALAPPDATA\Temp\VigyanShaala-*.log"
 )
 
 foreach ($tempPath in $tempPaths) {
@@ -649,6 +817,7 @@ Write-Host "  [OK] osquery service" -ForegroundColor White
 Write-Host "  [OK] All scheduled tasks" -ForegroundColor White
 Write-Host "  [OK] Installation files and directories" -ForegroundColor White
 Write-Host "  [OK] ProgramData files and logs" -ForegroundColor White
+Write-Host "  [OK] MDM log directory (C:\ProgramData\VigyanShaala-MDM\logs)" -ForegroundColor White
 Write-Host "  [OK] Desktop shortcuts" -ForegroundColor White
 Write-Host "  [OK] Website blocklist entries" -ForegroundColor White
 Write-Host "  [OK] Registry entries" -ForegroundColor White
