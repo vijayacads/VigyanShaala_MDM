@@ -140,6 +140,7 @@ Write-Host "Removing scheduled tasks..." -ForegroundColor Yellow
 $taskNames = @(
     "VigyanShaala-MDM-SyncWebsiteBlocklist",
     "VigyanShaala-MDM-SyncSoftwareBlocklist",
+    "VigyanShaala-MDM-SyncBlocklist",  # Old task name
     "VigyanShaala-MDM-SendOsqueryData",
     "VigyanShaala-MDM-CollectBatteryData",
     "VigyanShaala-MDM-RealtimeListener",

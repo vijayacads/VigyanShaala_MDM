@@ -14,7 +14,7 @@ Write-Host "Remove All MDM Scheduled Tasks" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Comprehensive list of all possible MDM task names
+# Comprehensive list of all possible MDM task names (including old variations)
 $allTaskNames = @(
     "VigyanShaala-MDM-RealtimeListener",
     "VigyanShaala-MDM-UserNotify-Agent",
@@ -23,6 +23,7 @@ $allTaskNames = @(
     "VigyanShaala-MDM-CollectBatteryData",
     "VigyanShaala-MDM-SyncWebsiteBlocklist",
     "VigyanShaala-MDM-SyncSoftwareBlocklist",
+    "VigyanShaala-MDM-SyncBlocklist",  # Old task name
     "VigyanShaala-MDM-CommandProcessor",
     "VigyanShaala-MDM-OsqueryHealth",
     "VigyanShaala-MDM-OsquerySoftware",
