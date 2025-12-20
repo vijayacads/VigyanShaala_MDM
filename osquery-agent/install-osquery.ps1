@@ -211,6 +211,143 @@ if ($SupabaseUrl -and $SupabaseKey) {
 if ($SupabaseUrl -and $SupabaseKey) {
     Write-Host "`nApplying blocklists..." -ForegroundColor Cyan
     
+    # Task 1: Data Sending (sends osquery data to Supabase)
+    # ============================================
+    Write-Host "`n[1/6] Creating scheduled task to send osquery data..." -ForegroundColor Cyan
+    $sendDataScript = "$InstallDir\send-osquery-data.ps1"
+    if (Test-Path "send-osquery-data.ps1") {
+        Copy-FileForce -Source "send-osquery-data.ps1" -Destination $sendDataScript
+        Write-Host "send-osquery-data.ps1 copied (overwritten)" -ForegroundColor Green
+    } else {
+        Write-Warning "send-osquery-data.ps1 not found - data collection will not work"
+    }
+    
+    $dataTaskName = "VigyanShaala-MDM-SendOsqueryData"
+    $dataTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$sendDataScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseAnonKey `"$SupabaseKey`""
+    # Run every 25 minutes (more frequent than before for better real-time updates)
+    $dataTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 25) -RepetitionDuration (New-TimeSpan -Days 365)
+    
+    # Use SYSTEM account to run regardless of logged-in user
+    $dataTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    
+    # Create settings to ensure task runs even when user is not logged in
+    $dataTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RunOnlyIfNetworkAvailable:$false
+    
+    try {
+        # Remove existing task if it exists
+        Unregister-ScheduledTask -TaskName $dataTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        
+        # Register the task
+        $task = Register-ScheduledTask -TaskName $dataTaskName -Action $dataTaskAction -Trigger $dataTaskTrigger -Principal $dataTaskPrincipal -Settings $dataTaskSettings -Description "Send osquery data to MDM server every 25 minutes" -Force
+        
+        # Explicitly enable the task (runs regardless of user login)
+        Enable-ScheduledTask -TaskName $dataTaskName
+        
+        Write-Host "Data sending task created and enabled (runs every 25 minutes, regardless of user login)" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create data sending task: $_"
+    }
+    
+    # Task 2: Battery Data Collection (WMI-based)
+    # ============================================
+    Write-Host "`n[2/6] Creating scheduled task for battery data collection (WMI)..." -ForegroundColor Cyan
+    $batteryScript = "$InstallDir\get-battery-wmi.ps1"
+    if (Test-Path "get-battery-wmi.ps1") {
+        Copy-FileForce -Source "get-battery-wmi.ps1" -Destination $batteryScript
+        Write-Host "get-battery-wmi.ps1 copied (overwritten)" -ForegroundColor Green
+    } else {
+        Write-Warning "get-battery-wmi.ps1 not found - battery data collection will not work"
+    }
+    
+    $batteryTaskName = "VigyanShaala-MDM-CollectBatteryData"
+    $batteryTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$batteryScript`""
+    # Run every 25 minutes
+    $batteryTaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 25) -RepetitionDuration (New-TimeSpan -Days 365)
+    $batteryTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $batteryTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RunOnlyIfNetworkAvailable:$false
+    
+    try {
+        Unregister-ScheduledTask -TaskName $batteryTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        $task = Register-ScheduledTask -TaskName $batteryTaskName -Action $batteryTaskAction -Trigger $batteryTaskTrigger -Principal $batteryTaskPrincipal -Settings $batteryTaskSettings -Description "Collect battery data via WMI every 25 minutes" -Force
+        Enable-ScheduledTask -TaskName $batteryTaskName
+        Write-Host "Battery data collection task created and enabled (runs every 25 minutes)" -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not create battery data collection task: $_"
+    }
+    
+    # Task 3: Realtime Command Listener (WebSocket)
+    # ============================================
+    Write-Host "`n[3/6] Creating scheduled task for realtime command listener (WebSocket)..." -ForegroundColor Cyan
+    $realtimeScript = "$InstallDir\realtime-command-listener.ps1"
+    if (Test-Path "realtime-command-listener.ps1") {
+        Copy-FileForce -Source "realtime-command-listener.ps1" -Destination $realtimeScript
+        Write-Host "realtime-command-listener.ps1 copied (overwritten)" -ForegroundColor Green
+    } else {
+        Write-Warning "realtime-command-listener.ps1 not found - realtime command processing will not work"
+    }
+    
+    # Copy execute-commands.ps1 (required by realtime listener for function imports)
+    $commandScript = "$InstallDir\execute-commands.ps1"
+    if (Test-Path "execute-commands.ps1") {
+        Copy-FileForce -Source "execute-commands.ps1" -Destination $commandScript
+        Write-Host "execute-commands.ps1 copied (overwritten, required by realtime listener)" -ForegroundColor Green
+    } else {
+        Write-Warning "execute-commands.ps1 not found - realtime listener will not work"
+    }
+    
+    $realtimeTaskName = "VigyanShaala-MDM-RealtimeListener"
+    $realtimeTaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$realtimeScript`" -SupabaseUrl `"$SupabaseUrl`" -SupabaseKey `"$SupabaseKey`""
+    # Run at startup and restart on failure (continuous service-like behavior)
+    $realtimeTaskTrigger = New-ScheduledTaskTrigger -AtStartup
+    $realtimeTaskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    # Create settings - RestartCount/RestartInterval may not be available in older PowerShell
+    try {
+        $realtimeTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Hours 0)
+    } catch {
+        # Fallback for older PowerShell versions that don't support RestartCount
+        $realtimeTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 0)
+    }
+    
+    try {
+        # Force remove old task if it exists (stop it first, then remove)
+        $oldTask = Get-ScheduledTask -TaskName $realtimeTaskName -ErrorAction SilentlyContinue
+        if ($oldTask) {
+            Write-Host "Removing old realtime listener task..." -ForegroundColor Gray
+            try {
+                Stop-ScheduledTask -TaskName $realtimeTaskName -ErrorAction SilentlyContinue
+            } catch {}
+            Unregister-ScheduledTask -TaskName $realtimeTaskName -Confirm:$false -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        }
+        
+        # Create new task
+        $task = Register-ScheduledTask -TaskName $realtimeTaskName -Action $realtimeTaskAction -Trigger $realtimeTaskTrigger -Principal $realtimeTaskPrincipal -Settings $realtimeTaskSettings -Description "Realtime WebSocket listener for instant command processing (runs continuously)" -Force
+        Enable-ScheduledTask -TaskName $realtimeTaskName
+        Write-Host "Realtime listener task created and enabled (runs at startup, restarts on failure)" -ForegroundColor Green
+        
+        # Start the task immediately (not just register it)
+        Write-Host "Starting realtime listener task..." -ForegroundColor Gray
+        try {
+            Start-ScheduledTask -TaskName $realtimeTaskName
+            Start-Sleep -Seconds 5  # Wait longer for task to start
+            
+            $info = Get-ScheduledTask -TaskName $realtimeTaskName | Get-ScheduledTaskInfo
+            if ($info.State -eq "Running" -or $info.LastTaskResult -eq 267009) {
+                Write-Host "✓ Realtime listener started successfully. State=$($info.State), LastTaskResult=$($info.LastTaskResult)" -ForegroundColor Green
+            } else {
+                Write-Host "⚠ Realtime listener task created but may not be running. State=$($info.State), LastTaskResult=$($info.LastTaskResult)" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Warning "Could not start realtime listener task: $_"
+            Write-Host "  Task will start automatically at next reboot" -ForegroundColor Gray
+        }
+    } catch {
+        Write-Warning "Could not create realtime listener task: $_"
+    }
+    
     # Task 4: Website Blocklist Sync
     # ============================================
     Write-Host "`n[4/6] Setting up website blocklist sync..." -ForegroundColor Cyan
