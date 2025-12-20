@@ -1,0 +1,193 @@
+.tamper-detection-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.tamper-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.tamper-header h2 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.tamper-filters {
+  display: flex;
+  gap: 10px;
+}
+
+.tamper-filters button {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.tamper-filters button:hover {
+  background: #f8f9fa;
+}
+
+.tamper-filters button.active {
+  background: #3498db;
+  color: white;
+  border-color: #3498db;
+}
+
+.offline-devices-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.offline-devices-section h3 {
+  margin-top: 0;
+  color: #e74c3c;
+}
+
+.offline-devices-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.offline-device-card {
+  background: #fff;
+  border: 2px solid #ddd;
+  border-left: 4px solid;
+  border-radius: 8px;
+  padding: 15px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.offline-device-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.device-info {
+  margin-bottom: 10px;
+}
+
+.device-name {
+  font-weight: bold;
+  font-size: 16px;
+  color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.device-code {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.device-status {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.severity-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.offline-time {
+  font-size: 14px;
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.last-seen {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.tamper-events-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tamper-events-section h3 {
+  margin-top: 0;
+  color: #2c3e50;
+}
+
+.tamper-events-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.tamper-events-table th {
+  background: #f8f9fa;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.tamper-events-table td {
+  padding: 12px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.tamper-events-table tr:hover {
+  background: #f8f9fa;
+}
+
+.resolved-badge {
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.unresolved-badge {
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.resolve-btn {
+  padding: 6px 12px;
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.resolve-btn:hover {
+  background: #229954;
+}
+
+.resolve-btn:disabled {
+  background: #95a5a6;
+  cursor: not-allowed;
+}
+
+.no-tamper {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+  font-size: 16px;
+}

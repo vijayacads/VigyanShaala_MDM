@@ -28,7 +28,6 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set())
   const [searchText, setSearchText] = useState('')
   const [buzzDuration, setBuzzDuration] = useState(5)
-  const [broadcastMessage, setBroadcastMessage] = useState('')
   const [commandHistory, setCommandHistory] = useState<DeviceCommand[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -131,57 +130,6 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
     } catch (error) {
       console.error('Error sending command:', error)
       alert('Failed to send command')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function sendBroadcast() {
-    if (selectedDevices.size === 0) {
-      alert('Please select at least one device')
-      return
-    }
-
-    if (!broadcastMessage.trim()) {
-      alert('Please enter a message')
-      return
-    }
-
-    setLoading(true)
-    try {
-      // Normalize hostnames and build commands with correct schema
-      const commands = Array.from(selectedDevices).map((hostname: string) => {
-        const normalizedHostname = hostname.trim().toUpperCase()
-        return {
-          device_hostname: normalizedHostname,
-          command_type: 'broadcast_message',
-          message: broadcastMessage.trim(),
-          status: 'pending'
-        }
-      })
-
-      const { error } = await supabase
-        .from('device_commands')
-        .insert(commands)
-
-      if (error) throw error
-
-      // Refresh history
-      const firstDevice = Array.from(selectedDevices)[0] as string | undefined
-      if (firstDevice) {
-        await fetchCommandHistory(firstDevice.trim().toUpperCase())
-      }
-      setBroadcastMessage('')
-      // Play notification sound
-      try {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwUZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwUZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwU=');
-        audio.volume = 0.3;
-        audio.play().catch(() => {});
-      } catch {}
-      alert(`Broadcast sent to ${selectedDevices.size} device(s)`)
-    } catch (error) {
-      console.error('Error sending broadcast:', error)
-      alert('Failed to send broadcast')
     } finally {
       setLoading(false)
     }
@@ -313,27 +261,6 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
               <option value={10}>10 sec</option>
             </select>
           </div>
-        </div>
-      </div>
-
-      {/* Broadcast Message */}
-      <div className="control-section">
-        <h3>Broadcast Message</h3>
-        <div className="broadcast-controls">
-          <textarea
-            className="message-input"
-            rows={4}
-            placeholder="Enter message to broadcast to selected devices..."
-            value={broadcastMessage}
-            onChange={(e) => setBroadcastMessage(e.target.value)}
-          />
-          <button
-            className="send-broadcast-btn"
-            onClick={sendBroadcast}
-            disabled={loading || selectedDevices.size === 0 || !broadcastMessage.trim()}
-          >
-            📢 Send Broadcast
-          </button>
         </div>
       </div>
 

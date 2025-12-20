@@ -10,6 +10,7 @@ import DeviceDownloads from './components/DeviceDownloads'
 import AddDevice from './components/AddDevice'
 import DeviceSearchFilter from './components/DeviceSearchFilter'
 import DeviceControl from './components/DeviceControl'
+import TamperDetection from './components/TamperDetection'
 import ChatSupport from './components/ChatSupport'
 import './App.css'
 
@@ -35,7 +36,7 @@ interface DeviceFilters {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'downloads' | 'add-device' | 'device-control' | 'chat'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'websites' | 'software' | 'downloads' | 'add-device' | 'device-control' | 'tamper-detection' | 'chat'>('dashboard')
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [filters, setFilters] = useState<DeviceFilters>({
     searchText: '',
@@ -144,6 +145,12 @@ function App() {
               🎮 Device Control
             </button>
             <button
+              className={activeTab === 'tamper-detection' ? 'active' : ''}
+              onClick={() => setActiveTab('tamper-detection')}
+            >
+              🛡️ Tamper Detection
+            </button>
+            <button
               className={activeTab === 'chat' ? 'active' : ''}
               onClick={() => setActiveTab('chat')}
             >
@@ -213,6 +220,12 @@ function App() {
           {activeTab === 'device-control' && (
             <section className="device-control-section">
               <DeviceControl selectedDevice={selectedDevice?.hostname || null} />
+            </section>
+          )}
+
+          {activeTab === 'tamper-detection' && (
+            <section className="tamper-detection-section">
+              <TamperDetection />
             </section>
           )}
 
