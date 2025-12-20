@@ -324,19 +324,40 @@ if ($SupabaseUrl -and $SupabaseKey) {
     }
     
     try {
-        Unregister-ScheduledTask -TaskName $realtimeTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        # Force remove old task if it exists (stop it first, then remove)
+        $oldTask = Get-ScheduledTask -TaskName $realtimeTaskName -ErrorAction SilentlyContinue
+        if ($oldTask) {
+            Write-Host "Removing old realtime listener task..." -ForegroundColor Gray
+            try {
+                Stop-ScheduledTask -TaskName $realtimeTaskName -ErrorAction SilentlyContinue
+            } catch {}
+            Unregister-ScheduledTask -TaskName $realtimeTaskName -Confirm:$false -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        }
+        
+        # Create new task
         $task = Register-ScheduledTask -TaskName $realtimeTaskName -Action $realtimeTaskAction -Trigger $realtimeTaskTrigger -Principal $realtimeTaskPrincipal -Settings $realtimeTaskSettings -Description "Realtime WebSocket listener for instant command processing (runs continuously)" -Force
         Enable-ScheduledTask -TaskName $realtimeTaskName
         Write-Host "Realtime listener task created and enabled (runs at startup, restarts on failure)" -ForegroundColor Green
         
         # Start the task immediately (not just register it)
+        Write-Host "Starting realtime listener task..." -ForegroundColor Gray
         try {
             Start-ScheduledTask -TaskName $realtimeTaskName
-            Start-Sleep -Seconds 3
+            Start-Sleep -Seconds 5  # Wait longer for task to start
+            
             $info = Get-ScheduledTask -TaskName $realtimeTaskName | Get-ScheduledTaskInfo
-            Write-Host "Realtime listener started. State=$($info.State), LastTaskResult=$($info.LastTaskResult)" -ForegroundColor Green
+            if ($info.State -eq "Running" -or $info.LastTaskResult -eq 267009) {
+                Write-Host "✓ Realtime listener started successfully. State=$($info.State), LastTaskResult=$($info.LastTaskResult)" -ForegroundColor Green
+            } elseif ($info.LastTaskResult -eq 0) {
+                Write-Host "✓ Realtime listener task completed. State=$($info.State)" -ForegroundColor Green
+            } else {
+                Write-Host "⚠ Realtime listener task may have issues. State=$($info.State), LastTaskResult=$($info.LastTaskResult)" -ForegroundColor Yellow
+                Write-Host "  Check log: C:\ProgramData\VigyanShaala-MDM\logs\VigyanShaala-RealtimeListener.log" -ForegroundColor Gray
+            }
         } catch {
             Write-Warning "Could not start realtime listener task: $($_.Exception.Message)"
+            Write-Host "  You may need to start it manually: Start-ScheduledTask -TaskName '$realtimeTaskName'" -ForegroundColor Yellow
         }
     } catch {
         Write-Warning "Could not create realtime listener task: $_"
