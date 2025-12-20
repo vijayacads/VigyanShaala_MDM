@@ -8,6 +8,8 @@ interface Device {
   device_imei_number?: string
   device_make?: string
   host_location?: string
+  host_location_state?: string
+  program_name?: string
   city_town_village?: string
   role?: string
   issue_date?: string
@@ -56,7 +58,7 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
       // Try with all columns first
       let { data, error } = await supabase
         .from('devices')
-        .select('hostname, device_inventory_code, device_imei_number, device_make, host_location, city_town_village, role, issue_date, wifi_ssid, latitude, longitude, os_version, assigned_teacher, assigned_student_leader')
+        .select('hostname, device_inventory_code, device_imei_number, device_make, host_location, host_location_state, program_name, city_town_village, role, issue_date, wifi_ssid, latitude, longitude, os_version, assigned_teacher, assigned_student_leader')
         .order('hostname', { ascending: true })
 
       // If columns don't exist, use basic columns only
@@ -134,6 +136,8 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
       device.hostname?.toLowerCase().includes(query) ||
       device.device_inventory_code?.toLowerCase().includes(query) ||
       device.host_location?.toLowerCase().includes(query) ||
+      device.host_location_state?.toLowerCase().includes(query) ||
+      device.program_name?.toLowerCase().includes(query) ||
       device.city_town_village?.toLowerCase().includes(query) ||
       device.device_imei_number?.toLowerCase().includes(query)
     ).slice(0, 10) // Limit to 10 results
@@ -150,6 +154,8 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
       device_imei_number: device.device_imei_number || '',
       device_make: device.device_make || '',
       host_location: device.host_location || '',
+      host_location_state: device.host_location_state || '',
+      program_name: device.program_name || '',
       city_town_village: device.city_town_village || '',
       role: device.role || '',
       issue_date: device.issue_date || '',
@@ -172,6 +178,8 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
       device_imei_number: '',
       device_make: '',
       host_location: '',
+      host_location_state: '',
+      program_name: '',
       city_town_village: '',
       role: '',
       issue_date: '',
@@ -224,6 +232,8 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
         device_imei_number: formData.device_imei_number || null,
         device_make: formData.device_make || null,
         host_location: formData.host_location || null,
+        host_location_state: formData.host_location_state || null,
+        program_name: formData.program_name || null,
         city_town_village: formData.city_town_village || null,
         role: formData.role || null,
         issue_date: formData.issue_date || null,
@@ -320,13 +330,33 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
 
         <div className="form-row">
           <div className="form-group">
-            <label>Host Location (College, Lab etc.) *</label>
+            <label>Host College *</label>
             <input
               type="text"
               value={formData.host_location}
               onChange={(e) => setFormData({ ...formData, host_location: e.target.value })}
               required
               placeholder="Computer Lab, Classroom, etc."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Host Location (State)</label>
+            <input
+              type="text"
+              value={formData.host_location_state}
+              onChange={(e) => setFormData({ ...formData, host_location_state: e.target.value })}
+              placeholder="Maharashtra, Karnataka, etc."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Program Name</label>
+            <input
+              type="text"
+              value={formData.program_name}
+              onChange={(e) => setFormData({ ...formData, program_name: e.target.value })}
+              placeholder="Program name"
             />
           </div>
 

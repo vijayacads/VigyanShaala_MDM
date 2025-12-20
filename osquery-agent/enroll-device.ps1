@@ -178,7 +178,7 @@ function Show-DeviceEnrollmentForm {
     $label4 = New-Object System.Windows.Forms.Label
     $label4.Location = New-Object System.Drawing.Point(20, $yPos)
     $label4.Size = New-Object System.Drawing.Size(260, $labelHeight)
-    $label4.Text = "Host Location (College, Lab, etc.) *:"
+    $label4.Text = "Host College *:"
     $form.Controls.Add($label4)
     
     $txtHostLocation = New-Object System.Windows.Forms.TextBox
@@ -186,6 +186,32 @@ function Show-DeviceEnrollmentForm {
     $txtHostLocation.Size = New-Object System.Drawing.Size(280, $inputHeight)
     # Note: PlaceholderText not available in older .NET versions
     $form.Controls.Add($txtHostLocation)
+    $yPos += $spacing
+    
+    # Host Location (State) - NEW
+    $label4a = New-Object System.Windows.Forms.Label
+    $label4a.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label4a.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label4a.Text = "Host Location (State):"
+    $form.Controls.Add($label4a)
+    
+    $txtHostLocationState = New-Object System.Windows.Forms.TextBox
+    $txtHostLocationState.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtHostLocationState.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $form.Controls.Add($txtHostLocationState)
+    $yPos += $spacing
+    
+    # Program Name - NEW
+    $label4b = New-Object System.Windows.Forms.Label
+    $label4b.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label4b.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label4b.Text = "Program Name:"
+    $form.Controls.Add($label4b)
+    
+    $txtProgramName = New-Object System.Windows.Forms.TextBox
+    $txtProgramName.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtProgramName.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $form.Controls.Add($txtProgramName)
     $yPos += $spacing
     
     # City/Town/Village
@@ -440,6 +466,8 @@ function Show-DeviceEnrollmentForm {
             device_imei_number = $deviceInfo.device_imei_number
             device_make = $deviceInfo.device_make
             host_location = $txtHostLocation.Text.Trim()
+            host_location_state = if ([string]::IsNullOrWhiteSpace($txtHostLocationState.Text)) { $null } else { $txtHostLocationState.Text.Trim() }
+            program_name = if ([string]::IsNullOrWhiteSpace($txtProgramName.Text)) { $null } else { $txtProgramName.Text.Trim() }
             city_town_village = if ([string]::IsNullOrWhiteSpace($txtCity.Text)) { $null } else { $txtCity.Text.Trim() }
             laptop_model = if ([string]::IsNullOrWhiteSpace($txtLaptopModel.Text)) { $null } else { $txtLaptopModel.Text.Trim() }
             os_version = if ([string]::IsNullOrWhiteSpace($txtOSVersion.Text)) { $null } else { $txtOSVersion.Text.Trim() }
@@ -940,7 +968,7 @@ function Show-DeviceEnrollmentForm {
     $label4 = New-Object System.Windows.Forms.Label
     $label4.Location = New-Object System.Drawing.Point(20, $yPos)
     $label4.Size = New-Object System.Drawing.Size(260, $labelHeight)
-    $label4.Text = "Host Location (College, Lab, etc.) *:"
+    $label4.Text = "Host College *:"
     $form.Controls.Add($label4)
     
     $txtHostLocation = New-Object System.Windows.Forms.TextBox
@@ -948,6 +976,32 @@ function Show-DeviceEnrollmentForm {
     $txtHostLocation.Size = New-Object System.Drawing.Size(280, $inputHeight)
     # Note: PlaceholderText not available in older .NET versions
     $form.Controls.Add($txtHostLocation)
+    $yPos += $spacing
+    
+    # Host Location (State) - NEW
+    $label4a = New-Object System.Windows.Forms.Label
+    $label4a.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label4a.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label4a.Text = "Host Location (State):"
+    $form.Controls.Add($label4a)
+    
+    $txtHostLocationState = New-Object System.Windows.Forms.TextBox
+    $txtHostLocationState.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtHostLocationState.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $form.Controls.Add($txtHostLocationState)
+    $yPos += $spacing
+    
+    # Program Name - NEW
+    $label4b = New-Object System.Windows.Forms.Label
+    $label4b.Location = New-Object System.Drawing.Point(20, $yPos)
+    $label4b.Size = New-Object System.Drawing.Size(260, $labelHeight)
+    $label4b.Text = "Program Name:"
+    $form.Controls.Add($label4b)
+    
+    $txtProgramName = New-Object System.Windows.Forms.TextBox
+    $txtProgramName.Location = New-Object System.Drawing.Point(280, $yPos)
+    $txtProgramName.Size = New-Object System.Drawing.Size(280, $inputHeight)
+    $form.Controls.Add($txtProgramName)
     $yPos += $spacing
     
     # City/Town/Village
@@ -1202,6 +1256,8 @@ function Show-DeviceEnrollmentForm {
             device_imei_number = $deviceInfo.device_imei_number
             device_make = $deviceInfo.device_make
             host_location = $txtHostLocation.Text.Trim()
+            host_location_state = if ([string]::IsNullOrWhiteSpace($txtHostLocationState.Text)) { $null } else { $txtHostLocationState.Text.Trim() }
+            program_name = if ([string]::IsNullOrWhiteSpace($txtProgramName.Text)) { $null } else { $txtProgramName.Text.Trim() }
             city_town_village = if ([string]::IsNullOrWhiteSpace($txtCity.Text)) { $null } else { $txtCity.Text.Trim() }
             laptop_model = if ([string]::IsNullOrWhiteSpace($txtLaptopModel.Text)) { $null } else { $txtLaptopModel.Text.Trim() }
             os_version = if ([string]::IsNullOrWhiteSpace($txtOSVersion.Text)) { $null } else { $txtOSVersion.Text.Trim() }
