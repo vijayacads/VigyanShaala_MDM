@@ -1,4 +1,4 @@
-# trigger-osquery-queries.ps1
+﻿# trigger-osquery-queries.ps1
 # Manually triggers osquery scheduled queries to run immediately
 # This forces osquery to execute queries and write results to the log file
 

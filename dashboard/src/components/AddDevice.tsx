@@ -33,6 +33,8 @@ export default function AddDevice({ onDeviceAdded }: { onDeviceAdded?: () => voi
     device_imei_number: '',
     device_make: '',
     host_location: '',
+    host_location_state: '',
+    program_name: '',
     city_town_village: '',
     role: '',
     issue_date: '',

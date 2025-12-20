@@ -1,4 +1,4 @@
-# Scheduled Task Script to Sync Software Blocklist
+﻿# Scheduled Task Script to Sync Software Blocklist
 # This runs periodically to check and remove blocked software
 
 param(

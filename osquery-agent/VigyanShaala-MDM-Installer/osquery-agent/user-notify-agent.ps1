@@ -1,4 +1,4 @@
-# User Session Notification Agent
+﻿# User Session Notification Agent
 # Runs in logged-in user's session to handle buzz and toast notifications
 # Polls Supabase for pending notifications and executes them
 

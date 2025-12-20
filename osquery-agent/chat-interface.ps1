@@ -215,6 +215,11 @@ function Load-ChatMessages {
         $chatMessageBox.ScrollToCaret()
         $statusLabel.Text = "Connected - Ready to chat"
         $statusLabel.ForeColor = $PrimaryGreen
+        
+        # Play notification sound for new messages
+        try {
+            [console]::beep(1000, 200)  # Pleasant notification sound
+        } catch {}
     } catch {
         $statusLabel.Text = "Error loading messages: $_"
         $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(231, 76, 60)
@@ -257,6 +262,11 @@ function Load-BroadcastMessages {
         }
         $broadcastMessageBox.SelectionStart = $broadcastMessageBox.Text.Length
         $broadcastMessageBox.ScrollToCaret()
+        
+        # Play notification sound for new broadcast messages
+        try {
+            [console]::beep(1000, 200)  # Pleasant notification sound
+        } catch {}
     } catch {
         $statusLabel.Text = "Error loading broadcast messages: $_"
         $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(231, 76, 60)

@@ -1,4 +1,4 @@
-# Apply Software Blocklist - Monitor and Remove Blocked Software
+﻿# Apply Software Blocklist - Monitor and Remove Blocked Software
 # This script checks for blocked software and uninstalls it
 
 param(

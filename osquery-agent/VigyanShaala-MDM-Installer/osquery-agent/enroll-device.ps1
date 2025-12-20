@@ -1,4 +1,4 @@
-# Device Enrollment Script with Full Form
+﻿# Device Enrollment Script with Full Form
 # This script collects all device information and registers it in Supabase
 # Run after osquery installation
 

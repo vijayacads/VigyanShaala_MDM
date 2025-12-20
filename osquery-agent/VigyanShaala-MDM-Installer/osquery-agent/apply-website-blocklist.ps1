@@ -1,4 +1,4 @@
-# Apply Website Blocklist to All Browsers via Windows Hosts File + Browser Policies
+﻿# Apply Website Blocklist to All Browsers via Windows Hosts File + Browser Policies
 # This script fetches the blocklist from Supabase and applies it system-wide
 
 param(

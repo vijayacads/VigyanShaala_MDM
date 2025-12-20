@@ -172,6 +172,12 @@ export default function DeviceControl({ selectedDevice }: DeviceControlProps) {
         await fetchCommandHistory(firstDevice.trim().toUpperCase())
       }
       setBroadcastMessage('')
+      // Play notification sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwUZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwUZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwU=');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch {}
       alert(`Broadcast sent to ${selectedDevices.size} device(s)`)
     } catch (error) {
       console.error('Error sending broadcast:', error)

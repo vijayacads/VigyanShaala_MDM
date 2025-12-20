@@ -494,6 +494,8 @@ function Register-DeviceInSupabase {
         p_device_imei_number = if ([string]::IsNullOrWhiteSpace($deviceData.device_imei_number)) { $null } else { $deviceData.device_imei_number }
         p_device_make = if ([string]::IsNullOrWhiteSpace($deviceData.device_make)) { $null } else { $deviceData.device_make }
         p_host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }
+        p_host_location_state = if ([string]::IsNullOrWhiteSpace($deviceData.host_location_state)) { $null } else { $deviceData.host_location_state }
+        p_program_name = if ([string]::IsNullOrWhiteSpace($deviceData.program_name)) { $null } else { $deviceData.program_name }
         p_city_town_village = if ([string]::IsNullOrWhiteSpace($deviceData.city_town_village)) { $null } else { $deviceData.city_town_village }
         p_laptop_model = if ([string]::IsNullOrWhiteSpace($deviceData.laptop_model)) { $null } else { $deviceData.laptop_model }
         p_latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }
@@ -1254,6 +1256,8 @@ function Register-DeviceInSupabase {
         p_device_imei_number = if ([string]::IsNullOrWhiteSpace($deviceData.device_imei_number)) { $null } else { $deviceData.device_imei_number }
         p_device_make = if ([string]::IsNullOrWhiteSpace($deviceData.device_make)) { $null } else { $deviceData.device_make }
         p_host_location = if ([string]::IsNullOrWhiteSpace($deviceData.host_location)) { $null } else { $deviceData.host_location }
+        p_host_location_state = if ([string]::IsNullOrWhiteSpace($deviceData.host_location_state)) { $null } else { $deviceData.host_location_state }
+        p_program_name = if ([string]::IsNullOrWhiteSpace($deviceData.program_name)) { $null } else { $deviceData.program_name }
         p_city_town_village = if ([string]::IsNullOrWhiteSpace($deviceData.city_town_village)) { $null } else { $deviceData.city_town_village }
         p_laptop_model = if ([string]::IsNullOrWhiteSpace($deviceData.laptop_model)) { $null } else { $deviceData.laptop_model }
         p_latitude = if ($deviceData.latitude) { [double]$deviceData.latitude } else { $null }

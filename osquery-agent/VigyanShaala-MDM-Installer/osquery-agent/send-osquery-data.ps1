@@ -1,4 +1,4 @@
-# send-osquery-data.ps1
+﻿# send-osquery-data.ps1
 # Reads osquery results and sends to Supabase edge function
 
 param(

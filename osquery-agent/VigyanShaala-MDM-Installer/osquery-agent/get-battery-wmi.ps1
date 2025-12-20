@@ -1,4 +1,4 @@
-# get-battery-wmi.ps1
+﻿# get-battery-wmi.ps1
 # Gets battery data using WMI and writes to osquery results log in the same format
 
 $ErrorActionPreference = "Stop"

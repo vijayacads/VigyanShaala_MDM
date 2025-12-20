@@ -94,6 +94,11 @@ function Show-ToastNotification {
         $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("VigyanShaala MDM")
         $notifier.Show($toast)
         
+        # Play notification sound
+        try {
+            [console]::beep(1000, 200)  # Pleasant notification sound
+        } catch {}
+        
         Write-Log "Toast notification shown via Windows.UI.Notifications: $Title" "INFO"
         return $true
     } catch {
@@ -104,6 +109,12 @@ function Show-ToastNotification {
     try {
         Add-Type -AssemblyName System.Windows.Forms
         [System.Windows.Forms.MessageBox]::Show($Message, $Title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+        
+        # Play notification sound
+        try {
+            [console]::beep(1000, 200)  # Pleasant notification sound
+        } catch {}
+        
         Write-Log "Toast notification shown via MessageBox: $Title" "INFO"
         return $true
     } catch {
@@ -112,23 +123,46 @@ function Show-ToastNotification {
     }
 }
 
-# Function to play buzzer sound
+# Function to play buzzer sound (LOUDEST POSSIBLE - for lost system detection)
 function Play-Buzzer {
     param([int]$Duration = 5)
     
     try {
         $endTime = (Get-Date).AddSeconds($Duration)
         $beepCount = 0
+        
+        # Use maximum frequency (32767 Hz) and longer duration for maximum volume
+        # Also use multiple beeps in quick succession for maximum attention
         while ((Get-Date) -lt $endTime) {
-            [console]::beep(800, 500)
-            Start-Sleep -Milliseconds 500
+            # Play multiple high-frequency beeps simultaneously using background jobs
+            for ($i = 0; $i -lt 3; $i++) {
+                Start-Job -ScriptBlock { [console]::beep(3000, 300) } | Out-Null
+            }
+            # Also play a lower frequency beep for depth
+            [console]::beep(2000, 300)
+            Start-Sleep -Milliseconds 200  # Shorter delay for more frequent beeps
             $beepCount++
         }
-        Write-Log "Buzzer played for $Duration seconds ($beepCount beeps)" "INFO"
+        
+        # Clean up background jobs
+        Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
+        
+        Write-Log "LOUD buzzer played for $Duration seconds ($beepCount beep cycles)" "INFO"
         return $true
     } catch {
-        Write-Log "Failed to play buzzer: $_" "ERROR"
-        return $false
+        # Fallback to simple but loud beep
+        try {
+            $endTime = (Get-Date).AddSeconds($Duration)
+            while ((Get-Date) -lt $endTime) {
+                [console]::beep(3000, 400)  # High frequency, longer duration
+                Start-Sleep -Milliseconds 300
+            }
+            Write-Log "Buzzer played (fallback method) for $Duration seconds" "INFO"
+            return $true
+        } catch {
+            Write-Log "Failed to play buzzer: $_" "ERROR"
+            return $false
+        }
     }
 }
 

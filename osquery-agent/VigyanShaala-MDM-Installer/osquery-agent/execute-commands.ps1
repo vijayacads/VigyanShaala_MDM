@@ -1,4 +1,4 @@
-# Execute Device Commands and Messages
+﻿# Execute Device Commands and Messages
 # Polls Supabase for pending commands and executes them
 # Also checks for broadcast messages and displays them
 

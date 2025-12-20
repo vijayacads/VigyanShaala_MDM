@@ -18,6 +18,7 @@ export default function ChatSupport() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [searchFilter, setSearchFilter] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function ChatSupport() {
     try {
       const { data, error } = await supabase
         .from('devices')
-        .select('hostname, device_inventory_code')
+        .select('hostname, device_inventory_code, host_location, host_location_state, program_name')
         .order('hostname')
       
       if (error) throw error
@@ -54,6 +55,19 @@ export default function ChatSupport() {
       console.error('Error fetching devices:', error)
     }
   }
+  
+  // Filter devices based on search
+  const filteredDevices = devices.filter(device => {
+    if (!searchFilter) return true
+    const filter = searchFilter.toLowerCase()
+    return (
+      device.hostname?.toLowerCase().includes(filter) ||
+      device.device_inventory_code?.toLowerCase().includes(filter) ||
+      device.host_location?.toLowerCase().includes(filter) ||
+      device.host_location_state?.toLowerCase().includes(filter) ||
+      device.program_name?.toLowerCase().includes(filter)
+    )
+  })
 
   async function fetchMessages(deviceHostname: string) {
     try {
@@ -85,6 +99,12 @@ export default function ChatSupport() {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             setMessages(prev => [...prev, payload.new as ChatMessage])
+            // Play notification sound for new messages
+            try {
+              const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwUZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwUZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwU=');
+              audio.volume = 0.3;
+              audio.play().catch(() => {});
+            } catch {}
             // Mark as read if we sent it
             if (payload.new.sender === 'center') {
               markAsRead(payload.new.id)
@@ -119,6 +139,13 @@ export default function ChatSupport() {
         }])
 
       if (error) throw error
+
+      // Play notification sound when sending message
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwUZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwUZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2LwU=');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch {}
 
       setNewMessage('')
     } catch (error: any) {
@@ -159,8 +186,23 @@ export default function ChatSupport() {
         {/* Device Selection Sidebar */}
         <div className="chat-sidebar">
           <h3>Devices</h3>
+          <input
+            type="text"
+            placeholder="Search by name, ID, location, state, program..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="device-search-filter"
+            style={{
+              width: '100%',
+              padding: '8px',
+              marginBottom: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          />
           <div className="device-list">
-            {devices.map(device => (
+            {filteredDevices.map(device => (
               <div
                 key={device.hostname}
                 className={`device-item ${selectedDevice === device.hostname ? 'active' : ''}`}

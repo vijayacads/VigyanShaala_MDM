@@ -1,4 +1,4 @@
-# Realtime Command Listener
+﻿# Realtime Command Listener
 # Connects to Supabase Realtime via WebSocket to receive instant command notifications
 # Replaces polling with push-based command processing
 
@@ -16,6 +16,11 @@ $DeviceHostname = $DeviceHostname.Trim().ToUpper()
 $logDir = Split-Path -Parent $LogFile
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+}
+
+# Create log file if it doesn't exist (so it can be monitored immediately)
+if (-not (Test-Path $LogFile)) {
+    New-Item -ItemType File -Path $LogFile -Force | Out-Null
 }
 
 # Logging function

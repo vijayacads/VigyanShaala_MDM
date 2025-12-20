@@ -1,4 +1,4 @@
-# Chat Interface for Windows Devices
+﻿# Chat Interface for Windows Devices
 # Beautiful UI with VigyanShaala branding and tabs for Chat and Broadcast Messages
 # Emojis removed for PowerShell compatibility across all versions
 

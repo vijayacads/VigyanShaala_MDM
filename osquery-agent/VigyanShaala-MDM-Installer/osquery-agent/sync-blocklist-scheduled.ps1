@@ -1,4 +1,4 @@
-# Scheduled Task Script to Sync Website Blocklist
+﻿# Scheduled Task Script to Sync Website Blocklist
 # This runs periodically to keep blocklist up to date
 # Logs errors to Windows Event Log for troubleshooting
 
