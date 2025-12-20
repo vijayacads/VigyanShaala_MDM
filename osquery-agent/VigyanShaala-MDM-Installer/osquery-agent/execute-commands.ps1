@@ -1,0 +1,439 @@
+# Execute Device Commands and Messages
+# Polls Supabase for pending commands and executes them
+# Also checks for broadcast messages and displays them
+
+param(
+    [string]$SupabaseUrl = $env:SUPABASE_URL,
+    [string]$SupabaseKey = $env:SUPABASE_ANON_KEY,
+    [string]$DeviceHostname = $env:COMPUTERNAME
+)
+
+if (-not $SupabaseUrl -or -not $SupabaseKey) {
+    Write-Error "Supabase URL and Key must be provided"
+    exit 1
+}
+
+# Normalize hostname: trim whitespace and convert to uppercase for consistent matching
+$DeviceHostname = $DeviceHostname.Trim().ToUpper()
+Write-Host "Normalized device hostname: '$DeviceHostname'" -ForegroundColor Cyan
+Write-Host "Original COMPUTERNAME: '$env:COMPUTERNAME'" -ForegroundColor Gray
+
+# Function to queue unlock command for user-session agent
+function Unlock-Device {
+    Write-Host "Queueing unlock command for user-session agent..." -ForegroundColor Yellow
+    try {
+        # Get logged-in user
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, cannot unlock device"
+            return $false
+        }
+        
+        # Normalize username
+        $normalizedUsername = $loggedInUser
+        
+        # Write notification to user_notifications table
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "unlock"
+            payload = @{}
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Unlock command queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Error "Failed to queue unlock command: $_"
+        return $false
+    }
+}
+
+# Function to queue lock command for user-session agent
+# Lock requires interactive session, so we queue it like buzz
+function Lock-Device {
+    Write-Host "Queueing lock command for user-session agent..." -ForegroundColor Yellow
+    try {
+        # Get logged-in user
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, cannot lock device"
+            return $false
+        }
+        
+        # Normalize username
+        $normalizedUsername = $loggedInUser
+        
+        # Write notification to user_notifications table
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "lock"
+            payload = @{}
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Lock command queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Error "Failed to queue lock command: $_"
+        return $false
+    }
+}
+
+# Function to queue clear cache command for user-session agent
+function Clear-DeviceCache {
+    Write-Host "Queueing clear cache command for user-session agent..." -ForegroundColor Yellow
+    try {
+        # Get logged-in user
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, cannot clear cache"
+            return $false
+        }
+        
+        # Normalize username
+        $normalizedUsername = $loggedInUser
+        
+        # Write notification to user_notifications table
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "clear_cache"
+            payload = @{}
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Clear cache command queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Error "Failed to queue clear cache command: $_"
+        return $false
+    }
+}
+
+# Function to queue buzzer sound for user-session agent
+function Buzz-Device {
+    param([int]$Duration = 5)
+    
+    Write-Host "Queueing buzzer sound for user-session agent..." -ForegroundColor Yellow
+    try {
+        # Get logged-in user (normalize to match user agent format)
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, cannot play buzzer"
+            return $false
+        }
+        
+        # Normalize username format (domain\user or just user) to match user agent
+        $normalizedUsername = $loggedInUser
+        
+        # Write notification to user_notifications table for user-session agent to process
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "buzzer"
+            payload = @{
+                duration = $Duration
+            }
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Buzzer queued for user-session agent (notification ID: $($response.id), duration: $Duration seconds)" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Error "Failed to queue buzzer: $_"
+        return $false
+    }
+}
+
+# Function to queue toast notification for user-session agent
+function Show-ToastNotification {
+    param([string]$Title, [string]$Message)
+    
+    Write-Host "Queueing toast notification for user-session agent..." -ForegroundColor Yellow
+    try {
+        # Get logged-in user (normalize to match user agent format)
+        $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).Username
+        if (-not $loggedInUser) {
+            Write-Warning "No logged-in user found, using msg.exe fallback"
+            msg.exe * "$Title - $Message" 2>$null
+            return $true
+        }
+        
+        # Normalize username format (domain\user or just user) to match user agent
+        # User agent uses: domain\user if domain exists, else just user
+        $normalizedUsername = $loggedInUser
+        
+        # Write notification to user_notifications table for user-session agent to process
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+            "Prefer" = "return=representation"
+        }
+        
+        $body = @{
+            device_hostname = $DeviceHostname
+            username = $normalizedUsername
+            type = "toast"
+            payload = @{
+                title = $Title
+                message = $Message
+            }
+            status = "pending"
+        } | ConvertTo-Json -Depth 10
+        
+        $notificationUrl = "$SupabaseUrl/rest/v1/user_notifications"
+        $response = Invoke-RestMethod -Uri $notificationUrl -Method POST -Headers $headers -Body $body -ErrorAction Stop
+        
+        Write-Host "Toast notification queued for user-session agent (notification ID: $($response.id))" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Warning "Failed to queue toast notification: $_"
+        # Fallback to msg.exe (works from SYSTEM)
+        try {
+            msg.exe * "$Title - $Message" 2>$null
+        } catch {}
+        return $false
+    }
+}
+
+# Function to display broadcast message (Toast + Chat Interface)
+function Show-BroadcastMessage {
+    param([string]$Message, [string]$MessageId)
+    
+    Write-Host "Broadcast Message: $Message" -ForegroundColor Cyan
+    
+    # Show toast notification
+    Show-ToastNotification -Title "VigyanShaala MDM Broadcast" -Message $Message
+    
+    # Also add to chat_messages table so it appears in chat interface
+    try {
+        $headers = @{
+            "apikey" = $SupabaseKey
+            "Authorization" = "Bearer $SupabaseKey"
+            "Content-Type" = "application/json"
+        }
+        
+        # Use normalized hostname for consistency
+        $normalizedHostname = $DeviceHostname.Trim().ToUpper()
+        $body = @{
+            device_hostname = $normalizedHostname
+            sender = "center"
+            message = "[BROADCAST] $Message"
+        } | ConvertTo-Json
+        
+        $url = "$SupabaseUrl/rest/v1/chat_messages"
+        Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $body | Out-Null
+        Write-Host "Broadcast message added to chat interface" -ForegroundColor Green
+    } catch {
+        Write-Warning "Failed to add broadcast to chat: $_"
+    }
+}
+
+# Function to check and execute commands
+function Process-Commands {
+    $headers = @{
+        "apikey" = $SupabaseKey
+        "Authorization" = "Bearer $SupabaseKey"
+        "Content-Type" = "application/json"
+    }
+    
+    # Get all pending commands for this device (process all, not just one)
+    # Use case-insensitive matching by querying with ilike (PostgreSQL case-insensitive like)
+    # Note: PostgREST doesn't support ilike directly, so we'll try exact match first, then try uppercase
+    $commandUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname"
+    $commandUrl = $commandUrl + [char]38 + 'command_type=in.(lock,unlock,clear_cache,buzz)'
+    $commandUrl = $commandUrl + [char]38 + 'status=eq.pending'
+    $commandUrl = $commandUrl + [char]38 + 'order=created_at.asc'
+    
+    Write-Host "Querying commands with hostname: '$DeviceHostname'" -ForegroundColor Gray
+    
+    try {
+        $response = Invoke-RestMethod -Uri $commandUrl -Method GET -Headers $headers
+        
+        # If no results with exact match, try case-insensitive by querying all pending and filtering
+        if (-not $response -or $response.Count -eq 0) {
+            Write-Host "No commands found with exact hostname match, trying case-insensitive search..." -ForegroundColor Yellow
+            # Get all pending commands and filter by case-insensitive hostname match
+            $allCommandsUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=in.(lock,unlock,clear_cache,buzz)"
+            $allCommandsUrl = $allCommandsUrl + [char]38 + 'status=eq.pending'
+            $allCommandsUrl = $allCommandsUrl + [char]38 + 'order=created_at.asc'
+            $allCommandsUrl = $allCommandsUrl + [char]38 + 'select=*'
+            $allCommands = Invoke-RestMethod -Uri $allCommandsUrl -Method GET -Headers $headers
+            if ($allCommands) {
+                $response = $allCommands | Where-Object { $_.device_hostname -and $_.device_hostname.Trim().ToUpper() -eq $DeviceHostname }
+                if ($response) {
+                    $response = @($response)  # Ensure it's an array
+                    Write-Host "Found $($response.Count) command(s) with case-insensitive match" -ForegroundColor Green
+                }
+            }
+        }
+        
+        if ($response -and $response.Count -gt 0) {
+            Write-Host "Found $($response.Count) pending command(s) for device: $DeviceHostname" -ForegroundColor Cyan
+            
+            foreach ($command in $response) {
+                Write-Host "Processing command: $($command.command_type) (ID: $($command.id))" -ForegroundColor Green
+                
+                $success = $false
+                $errorMsg = $null
+                
+                switch ($command.command_type) {
+                    "lock" {
+                        $success = Lock-Device
+                    }
+                    "unlock" {
+                        Write-Host "Unlock requires user interaction" -ForegroundColor Yellow
+                        $errorMsg = "Unlock requires user password/pin"
+                    }
+                    "clear_cache" {
+                        $success = Clear-DeviceCache
+                    }
+                    "buzz" {
+                        $duration = if ($command.duration) { $command.duration } else { 5 }
+                        $success = Buzz-Device -Duration $duration
+                    }
+                }
+                
+                # Update command status
+                $updateUrl = "$SupabaseUrl/rest/v1/device_commands?id=eq.$($command.id)"
+                $updateBody = @{
+                    status = if ($success) { "completed" } else { "failed" }
+                    executed_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                    error_message = $errorMsg
+                } | ConvertTo-Json
+                
+                try {
+                    Invoke-RestMethod -Uri $updateUrl -Method PATCH -Headers $headers -Body $updateBody | Out-Null
+                    Write-Host "Command $($command.id) marked as $(if ($success) { 'completed' } else { 'failed' })" -ForegroundColor $(if ($success) { 'Green' } else { 'Red' })
+                } catch {
+                    Write-Error "Failed to update command status: $_"
+                }
+            }
+        }
+    } catch {
+        Write-Error "Error processing commands: $_"
+        Write-Host "Device hostname being used: $DeviceHostname" -ForegroundColor Yellow
+    }
+}
+
+# Function to check and display broadcast messages
+function Process-BroadcastMessages {
+    $headers = @{
+        "apikey" = $SupabaseKey
+        "Authorization" = "Bearer $SupabaseKey"
+        "Content-Type" = "application/json"
+    }
+    
+    # Get pending broadcast messages
+    $messageUrl = "$SupabaseUrl/rest/v1/device_commands?device_hostname=eq.$DeviceHostname"
+    $messageUrl = $messageUrl + [char]38 + 'command_type=eq.broadcast_message'
+    $messageUrl = $messageUrl + [char]38 + 'status=eq.pending'
+    $messageUrl = $messageUrl + [char]38 + 'order=created_at.asc'
+    
+    Write-Host "Querying broadcast messages with hostname: '$DeviceHostname'" -ForegroundColor Gray
+    
+    try {
+        $response = Invoke-RestMethod -Uri $messageUrl -Method GET -Headers $headers
+        
+        # If no results with exact match, try case-insensitive search
+        if (-not $response -or $response.Count -eq 0) {
+            Write-Host "No broadcast messages found with exact hostname match, trying case-insensitive search..." -ForegroundColor Yellow
+            $allMessagesUrl = "$SupabaseUrl/rest/v1/device_commands?command_type=eq.broadcast_message"
+            $allMessagesUrl = $allMessagesUrl + [char]38 + 'status=eq.pending'
+            $allMessagesUrl = $allMessagesUrl + [char]38 + 'order=created_at.asc'
+            $allMessagesUrl = $allMessagesUrl + [char]38 + 'select=*'
+            $allMessages = Invoke-RestMethod -Uri $allMessagesUrl -Method GET -Headers $headers
+            if ($allMessages) {
+                $response = $allMessages | Where-Object { $_.device_hostname -and $_.device_hostname.Trim().ToUpper() -eq $DeviceHostname }
+                if ($response) {
+                    $response = @($response)  # Ensure it's an array
+                    Write-Host "Found $($response.Count) broadcast message(s) with case-insensitive match" -ForegroundColor Green
+                }
+            }
+        }
+        
+        if ($response -and $response.Count -gt 0) {
+            Write-Host "Found $($response.Count) pending broadcast message(s) for device: $DeviceHostname" -ForegroundColor Cyan
+            
+            foreach ($msg in $response) {
+                if ($msg.message) {
+                    Write-Host "Displaying broadcast message (ID: $($msg.id))" -ForegroundColor Green
+                    Show-BroadcastMessage -Message $msg.message -MessageId $msg.id
+                    
+                    # Mark as dismissed
+                    $updateUrl = "$SupabaseUrl/rest/v1/device_commands?id=eq.$($msg.id)"
+                    $updateBody = @{
+                        status = "dismissed"
+                        executed_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                    } | ConvertTo-Json
+                    
+                    try {
+                        Invoke-RestMethod -Uri $updateUrl -Method PATCH -Headers $headers -Body $updateBody | Out-Null
+                        Write-Host "Broadcast message $($msg.id) marked as dismissed" -ForegroundColor Green
+                    } catch {
+                        Write-Error "Failed to update broadcast message status: $_"
+                    }
+                }
+            }
+        }
+    } catch {
+        Write-Error "Error processing broadcast messages: $_"
+        Write-Host "Device hostname being used: $DeviceHostname" -ForegroundColor Yellow
+    }
+}
+
+# Main execution - run once (scheduled task will call this repeatedly)
+Write-Host "Processing commands/messages for device: $DeviceHostname" -ForegroundColor Green
+Write-Host "Current time: $(Get-Date)" -ForegroundColor Gray
+
+try {
+    Process-Commands
+    Process-BroadcastMessages
+    Write-Host "Command/message processing completed" -ForegroundColor Green
+} catch {
+    Write-Error "Error in main execution: $_"
+    exit 1
+}
