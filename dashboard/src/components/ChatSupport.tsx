@@ -47,10 +47,31 @@ export default function ChatSupport() {
 
   async function fetchDevices() {
     try {
-      const { data, error } = await supabase
+      setLoading(true)
+      // Try with all columns first
+      let { data, error } = await supabase
         .from('devices')
         .select('hostname, device_inventory_code, host_location, host_location_state, program_name')
         .order('hostname')
+      
+      // If columns don't exist, use basic columns only
+      if (error && error.code === '42703') {
+        const result = await supabase
+          .from('devices')
+          .select('hostname, device_inventory_code, host_location')
+          .order('hostname')
+        if (result.error) {
+          error = result.error
+        } else {
+          // Map data to include missing columns as null
+          data = (result.data || []).map((d: any) => ({
+            ...d,
+            host_location_state: null,
+            program_name: null
+          }))
+          error = null
+        }
+      }
       
       if (error) throw error
       setDevices(data || [])
@@ -59,6 +80,9 @@ export default function ChatSupport() {
       }
     } catch (error) {
       console.error('Error fetching devices:', error)
+      setDevices([]) // Set empty array on error to prevent UI breakage
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -184,12 +208,14 @@ export default function ChatSupport() {
 
   // Filter devices for broadcast based on search
   const filteredDevicesForBroadcast = devices.filter(device => {
-    if (!broadcastSearchText) return true
-    const filter = broadcastSearchText.toLowerCase()
+    if (!broadcastSearchText || broadcastSearchText.trim() === '') return true
+    const filter = broadcastSearchText.toLowerCase().trim()
     return (
-      device.hostname?.toLowerCase().includes(filter) ||
-      device.device_inventory_code?.toLowerCase().includes(filter) ||
-      device.host_location?.toLowerCase().includes(filter)
+      (device.hostname?.toLowerCase() || '').includes(filter) ||
+      (device.device_inventory_code?.toLowerCase() || '').includes(filter) ||
+      (device.host_location?.toLowerCase() || '').includes(filter) ||
+      (device.host_location_state?.toLowerCase() || '').includes(filter) ||
+      (device.program_name?.toLowerCase() || '').includes(filter)
     )
   })
 
@@ -287,28 +313,48 @@ export default function ChatSupport() {
               }}
             />
             <div className="device-list">
-              {devices.filter(device => {
-                if (!searchFilter) return true
-                const filter = searchFilter.toLowerCase()
-                return (
-                  device.hostname?.toLowerCase().includes(filter) ||
-                  device.device_inventory_code?.toLowerCase().includes(filter) ||
-                  device.host_location?.toLowerCase().includes(filter) ||
-                  device.host_location_state?.toLowerCase().includes(filter) ||
-                  device.program_name?.toLowerCase().includes(filter)
+              {loading ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading devices...</div>
+              ) : devices.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>No devices found</div>
+              ) : (
+                devices.filter(device => {
+                  if (!searchFilter || searchFilter.trim() === '') return true
+                  const filter = searchFilter.toLowerCase().trim()
+                  return (
+                    (device.hostname?.toLowerCase() || '').includes(filter) ||
+                    (device.device_inventory_code?.toLowerCase() || '').includes(filter) ||
+                    (device.host_location?.toLowerCase() || '').includes(filter) ||
+                    (device.host_location_state?.toLowerCase() || '').includes(filter) ||
+                    (device.program_name?.toLowerCase() || '').includes(filter)
+                  )
+                }).length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>No devices match your search</div>
+                ) : (
+                  devices.filter(device => {
+                    if (!searchFilter || searchFilter.trim() === '') return true
+                    const filter = searchFilter.toLowerCase().trim()
+                    return (
+                      (device.hostname?.toLowerCase() || '').includes(filter) ||
+                      (device.device_inventory_code?.toLowerCase() || '').includes(filter) ||
+                      (device.host_location?.toLowerCase() || '').includes(filter) ||
+                      (device.host_location_state?.toLowerCase() || '').includes(filter) ||
+                      (device.program_name?.toLowerCase() || '').includes(filter)
+                    )
+                  }).map(device => (
+                    <div
+                      key={device.hostname}
+                      className={`device-item ${selectedDevice === device.hostname ? 'active' : ''}`}
+                      onClick={() => setSelectedDevice(device.hostname)}
+                    >
+                      <div className="device-name">{device.hostname}</div>
+                      {device.device_inventory_code && (
+                        <div className="device-code">{device.device_inventory_code}</div>
+                      )}
+                    </div>
+                  ))
                 )
-              }).map(device => (
-                <div
-                  key={device.hostname}
-                  className={`device-item ${selectedDevice === device.hostname ? 'active' : ''}`}
-                  onClick={() => setSelectedDevice(device.hostname)}
-                >
-                  <div className="device-name">{device.hostname}</div>
-                  {device.device_inventory_code && (
-                    <div className="device-code">{device.device_inventory_code}</div>
-                  )}
-                </div>
-              ))}
+              )}
             </div>
           </div>
 
