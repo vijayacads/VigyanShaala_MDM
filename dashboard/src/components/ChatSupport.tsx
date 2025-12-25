@@ -61,19 +61,6 @@ export default function ChatSupport() {
       console.error('Error fetching devices:', error)
     }
   }
-  
-  // Filter devices based on search
-  const filteredDevices = devices.filter(device => {
-    if (!searchFilter) return true
-    const filter = searchFilter.toLowerCase()
-    return (
-      device.hostname?.toLowerCase().includes(filter) ||
-      device.device_inventory_code?.toLowerCase().includes(filter) ||
-      device.host_location?.toLowerCase().includes(filter) ||
-      device.host_location_state?.toLowerCase().includes(filter) ||
-      device.program_name?.toLowerCase().includes(filter)
-    )
-  })
 
   async function fetchMessages(deviceHostname: string) {
     try {
@@ -195,16 +182,8 @@ export default function ChatSupport() {
     setSelectedDevices(newSelected)
   }
 
-  function selectAll() {
-    const filtered = filteredDevices.map(d => d.hostname)
-    if (selectedDevices.size === filtered.length) {
-      setSelectedDevices(new Set())
-    } else {
-      setSelectedDevices(new Set(filtered))
-    }
-  }
-
-  const filteredDevices = devices.filter(device => {
+  // Filter devices for broadcast based on search
+  const filteredDevicesForBroadcast = devices.filter(device => {
     if (!broadcastSearchText) return true
     const filter = broadcastSearchText.toLowerCase()
     return (
@@ -213,6 +192,15 @@ export default function ChatSupport() {
       device.host_location?.toLowerCase().includes(filter)
     )
   })
+
+  function selectAll() {
+    const filtered = filteredDevicesForBroadcast.map(d => d.hostname)
+    if (selectedDevices.size === filtered.length) {
+      setSelectedDevices(new Set())
+    } else {
+      setSelectedDevices(new Set(filtered))
+    }
+  }
 
   async function sendBroadcast() {
     if (selectedDevices.size === 0) {
@@ -386,14 +374,14 @@ export default function ChatSupport() {
                 onChange={(e) => setBroadcastSearchText(e.target.value)}
               />
               <button className="select-all-btn" onClick={selectAll}>
-                {selectedDevices.size === filteredDevices.length ? 'Deselect All' : 'Select All'}
+                {selectedDevices.size === filteredDevicesForBroadcast.length ? 'Deselect All' : 'Select All'}
               </button>
             </div>
             <div className="broadcast-device-list">
-              {filteredDevices.length === 0 ? (
+              {filteredDevicesForBroadcast.length === 0 ? (
                 <div className="no-devices">No devices found</div>
               ) : (
-                filteredDevices.map(device => (
+                filteredDevicesForBroadcast.map(device => (
                   <div
                     key={device.hostname}
                     className="broadcast-device-item"
