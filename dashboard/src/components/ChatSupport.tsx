@@ -424,8 +424,12 @@ export default function ChatSupport() {
               </button>
             </div>
             <div className="broadcast-device-list">
-              {filteredDevicesForBroadcast.length === 0 ? (
+              {loading ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>Loading devices...</div>
+              ) : devices.length === 0 ? (
                 <div className="no-devices">No devices found</div>
+              ) : filteredDevicesForBroadcast.length === 0 ? (
+                <div className="no-devices">No devices match your search</div>
               ) : (
                 filteredDevicesForBroadcast.map(device => (
                   <div
@@ -437,6 +441,7 @@ export default function ChatSupport() {
                       type="checkbox"
                       checked={selectedDevices.has(device.hostname)}
                       onChange={() => toggleDevice(device.hostname)}
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <span>{device.hostname} {device.device_inventory_code && `(${device.device_inventory_code})`}</span>
                   </div>
